@@ -14,7 +14,6 @@
     "@kplay/codegen": "workspace:*",
     "@kplay/core": "workspace:*",
     "@kplay/introspector": "workspace:*",
-    "@kplay/lightning": "workspace:*",
     "@kplay/resolver": "workspace:*",
     "@kplay/runner": "workspace:*",
     "@kplay/sf-connect": "workspace:*",

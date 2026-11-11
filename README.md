@@ -23,7 +23,7 @@ Playwright/
 │   ├── EncounterNotesPage.ts     # Encounter records, New Note modal, Sync button
 │   └── CareCloudPage.ts          # CareCloud login & Patient Notes verification
 ├── utils/
-│   ├── lightning-helpers.ts      # SLDS spinners, toast messages, comboboxes
+│   ├── lightning-helpers.ts      # THE single home for all Lightning helpers (spinners, toasts, comboboxes, nav, related lists...)
 │   └── salesforce-auth.ts        # CLI frontdoor URL bypass & form login fallback
 ├── tests/
 │   ├── auth.setup.ts             # Global one-time auth project
