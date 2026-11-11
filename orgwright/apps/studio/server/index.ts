@@ -10,7 +10,7 @@ import { execSync } from 'child_process';
 import { resolveTestSteps } from '@orgwright/resolver';
 import { generatePlaywrightSpec } from '@orgwright/codegen';
 import { executePlaywrightTest, stopTestExecution, isTestRunning } from '@orgwright/runner';
-import { getCachedMetadata } from '@orgwright/introspector';
+import { executeSfCommand, getCachedMetadata } from '@orgwright/introspector';
 import { ROOT_DIR, isValidTestId } from './lib/paths';
 import { resolveWithCatalog } from './lib/catalog';
 import { expandBlocks } from './lib/blocks';
@@ -291,7 +291,7 @@ app.post('/api/org/login/sfdx-url', (req, res) => {
 });
 
 // 4. Get all SObjects from the connected org (Standard & Custom)
-app.get('/api/org/objects', (req, res) => {
+app.get('/api/org/objects', async (req, res) => {
   const targetOrg = (req.query.alias as string) || 'sandboxOrg';
   const forceRefresh = req.query.refresh === 'true';
   const orgCacheFile = path.join(cacheDir, `objects-${targetOrg}.json`);
@@ -306,12 +306,10 @@ app.get('/api/org/objects', (req, res) => {
   }
 
   try {
-    const raw = execSync(`sf sobject list -o "${targetOrg}" --json`, {
-      timeout: 30000,
-      encoding: 'utf-8'
-    });
-    const parsed = JSON.parse(raw);
-    const allObjects: string[] = parsed.result || [];
+    const allObjects: string[] = await executeSfCommand(
+      ['sobject', 'list', '-o', targetOrg, '--json'],
+      { timeoutMs: 30000 }
+    ) || [];
 
     // Filter out internal Salesforce noise
     const filtered = allObjects.filter(name =>
@@ -356,7 +354,7 @@ app.get('/api/org/objects', (req, res) => {
 });
 
 // 4.5 Get Active Users for Persona Testing (with caching)
-app.get('/api/org/users', (req, res) => {
+app.get('/api/org/users', async (req, res) => {
   const targetOrg = (req.query.alias as string) || 'sandboxOrg';
   const forceRefresh = req.query.refresh === 'true';
   const orgUsersCacheFile = path.join(cacheDir, `users-${targetOrg}.json`);
@@ -369,12 +367,11 @@ app.get('/api/org/users', (req, res) => {
   }
 
   try {
-    const raw = execSync(
-      `sf data query -o "${targetOrg}" -q "SELECT Id, Name, Username, Email, Profile.Name, UserRole.Name, IsActive FROM User WHERE IsActive = true ORDER BY Name LIMIT 60" --json`,
-      { timeout: 30000, encoding: 'utf-8', shell: true as unknown as string }
+    const result = await executeSfCommand(
+      ['data', 'query', '-o', targetOrg, '-q', 'SELECT Id, Name, Username, Email, Profile.Name, UserRole.Name, IsActive FROM User WHERE IsActive = true ORDER BY Name LIMIT 60', '--json'],
+      { timeoutMs: 30000 }
     );
-    const parsed = JSON.parse(raw);
-    const records = parsed.result?.records || [];
+    const records = result?.records || [];
 
     const defaultAdmin = {
       id: 'admin',
