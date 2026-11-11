@@ -124,11 +124,10 @@ export function emitActionCode(
 
     case 'activate_tab': {
       const tabName = action.tab || action.target || 'Details';
+      // No visibility guard: a missing tab must fail the step instead of silently skipping it
       lines.push(`const tabLocator = ${page}.getByRole('tab', { name: /${escapeRegex(tabName)}/i }).first();`);
-      lines.push(`if (await tabLocator.isVisible({ timeout: 8000 })) {`);
-      lines.push(`  await tabLocator.click();`);
-      lines.push(`  await LightningHelpers.waitForLightningReady(${page});`);
-      lines.push(`}`);
+      lines.push(`await tabLocator.click({ timeout: 15000 });`);
+      lines.push(`await LightningHelpers.waitForLightningReady(${page});`);
       break;
     }
 
@@ -395,9 +394,9 @@ export function emitActionCode(
     }
 
     case 'run_apex': {
+      // Apex execution is not implemented yet: fail instead of pretending it ran
       const snippet = String(action.value || action.target);
-      lines.push(`// Run Apex: ${snippet}`);
-      lines.push(`console.log('Executed Apex snippet: ' + ${JSON.stringify(snippet)});`);
+      lines.push(`throw new Error(${JSON.stringify(`Run Apex is not supported yet - this step did not run: ${snippet}`)});`);
       break;
     }
 
@@ -420,9 +419,9 @@ export function emitActionCode(
 
     case 'custom':
     default: {
+      // Unrecognised step: fail loudly so the test never passes without doing what the step says
       const desc = rawText || action.target || 'Custom Action';
-      lines.push(`// Custom action: ${desc}`);
-      lines.push(`await LightningHelpers.waitForLightningReady(${page});`);
+      lines.push(`throw new Error(${JSON.stringify(`KPlay does not understand this step: "${desc}". Rephrase it or edit the generated code.`)});`);
       break;
     }
   }
@@ -439,7 +438,9 @@ export function emitStepCode(step: TestStep, options: StepEmitterOptions = {}): 
   const rawComment = `${indent}// Step ${step.index}: ${step.rawText}`;
 
   if (!step.action) {
-    return `${rawComment}\n${indent}// [Unresolved Step]\n${indent}await LightningHelpers.waitForLightningReady(page);`;
+    // Unresolved step: fail inside runStep so the Studio pauses on it instead of passing silently
+    const msg = JSON.stringify(`KPlay does not understand this step: "${step.rawText}". Rephrase it or edit the generated code.`);
+    return `${rawComment}\n${indent}await StreamHelper.runStep(${pageVar}, ${JSON.stringify(step.rawText)}, async () => {\n${indent}  throw new Error(${msg});\n${indent}});`;
   }
 
   const actionCode = emitActionCode(step.action, step.rawText, options);

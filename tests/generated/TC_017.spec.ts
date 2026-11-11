@@ -21,10 +21,8 @@ test.describe('Alliance Orthopedics - AMS-2272', () => {
 
     // Step 2: 2. Activate Details tab
     const tabLocator = page.getByRole('tab', { name: /Details/i }).first();
-    if (await tabLocator.isVisible({ timeout: 8000 })) {
-      await tabLocator.click();
-      await LightningHelpers.waitForLightningReady(page);
-    }
+    await tabLocator.click({ timeout: 15000 });
+    await LightningHelpers.waitForLightningReady(page);
 
     // Step 3: 3. Click button 'Sync CareCloud Notes'
     await encounterPage.clickSyncNotes(true);

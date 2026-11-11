@@ -137,10 +137,9 @@ ${locatorInitializations.join('\n')}
     }
 
     const fieldContainer = this.page.locator(\`records-record-layout-item:has-text("\${fieldLabel}"), records-record-layout-row:has-text("\${fieldLabel}")\`).first();
-    if (await fieldContainer.isVisible({ timeout: 8000 })) {
-      return (await fieldContainer.innerText()).trim();
-    }
-    return '';
+    // Fail loudly instead of returning '' for a field that is not on the page
+    await fieldContainer.waitFor({ state: 'visible', timeout: 15000 });
+    return (await fieldContainer.innerText()).trim();
   }
 
   /**

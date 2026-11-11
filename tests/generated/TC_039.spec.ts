@@ -24,25 +24,20 @@ test.describe('Alliance Orthopedics - AMS-2272', () => {
     // Step 2: 2. Activate Details tab
     {
       const tabLocator = page.getByRole('tab', { name: /Details/i }).first();
-      if (await tabLocator.isVisible({ timeout: 8000 })) {
-        await tabLocator.click();
-        await LightningHelpers.waitForLightningReady(page);
-      }
+      await tabLocator.click({ timeout: 15000 });
+      await LightningHelpers.waitForLightningReady(page);
     }
 
     // Step 3: 3. Verify field 'Owner' is not empty
     {
-      // Custom action: 3. Verify field 'Owner' is not empty
-      await LightningHelpers.waitForLightningReady(page);
+      throw new Error("KPlay does not understand this step: \"3. Verify field 'Owner' is not empty\". Regenerate this spec in Studio or edit the code.");
     }
 
     // Step 4: 4. Activate Related tab
     {
       const tabLocator = page.getByRole('tab', { name: /Related/i }).first();
-      if (await tabLocator.isVisible({ timeout: 8000 })) {
-        await tabLocator.click();
-        await LightningHelpers.waitForLightningReady(page);
-      }
+      await tabLocator.click({ timeout: 15000 });
+      await LightningHelpers.waitForLightningReady(page);
     }
   });
 });

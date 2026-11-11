@@ -32,25 +32,21 @@ test.describe('Revenue Operations - OPS-402', () => {
     // Step 2: 2. Open record "Recent"
     {
       await StreamHelper.setStep(page, "2. Open record \"Recent\"");
-      // Custom action: 2. Open record "Recent"
-      await LightningHelpers.waitForLightningReady(page);
+      throw new Error("KPlay does not understand this step: \"2. Open record \"Recent\"\". Regenerate this spec in Studio or edit the code.");
     }
 
     // Step 3: 3. Activate Details tab
     {
       await StreamHelper.setStep(page, "3. Activate Details tab");
       const tabLocator = page.getByRole('tab', { name: /Details/i }).first();
-      if (await tabLocator.isVisible({ timeout: 8000 })) {
-        await tabLocator.click();
-        await LightningHelpers.waitForLightningReady(page);
-      }
+      await tabLocator.click({ timeout: 15000 });
+      await LightningHelpers.waitForLightningReady(page);
     }
 
     // Step 4: 4. Select picklist "Stage" with value "Closed Won"
     {
       await StreamHelper.setStep(page, "4. Select picklist \"Stage\" with value \"Closed Won\"");
-      // Custom action: 4. Select picklist "Stage" with value "Closed Won"
-      await LightningHelpers.waitForLightningReady(page);
+      throw new Error("KPlay does not understand this step: \"4. Select picklist \"Stage\" with value \"Closed Won\"\". Regenerate this spec in Studio or edit the code.");
     }
 
     // Step 5: 5. Click button "Save"

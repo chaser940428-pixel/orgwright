@@ -147,18 +147,18 @@ export class EncounterNotesPage extends BasePage {
       lightning-output-field:has-text("${fieldLabel}")
     `).first();
 
-    if (await fieldContainer.isVisible({ timeout: 6000 })) {
-      const val = (await fieldContainer.innerText()).trim();
-      if (val.length > 0) return val;
+    // Fail loudly: a missing field must fail the step, never fall back to page text or a fake value
+    try {
+      await fieldContainer.waitFor({ state: 'visible', timeout: 15000 });
+    } catch {
+      throw new Error(`Field "${fieldLabel}" was not found on the record page`);
     }
 
-    // Check header highlights or fallback to standard verified value
-    const highlights = this.page.locator('.slds-page-header, one-record-home-flexipage2').first();
-    if (await highlights.isVisible({ timeout: 3000 })) {
-      const hText = (await highlights.innerText()).trim();
-      if (hText.length > 0) return hText;
-    }
-
-    return 'Verified Field Value';
+    // innerText includes the label (and "Edit <label>" button text) - return only the value
+    const lines = (await fieldContainer.innerText())
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && l.toLowerCase() !== fieldLabel.toLowerCase() && l.toLowerCase() !== `edit ${fieldLabel}`.toLowerCase());
+    return lines.join('\n');
   }
 }

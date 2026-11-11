@@ -400,7 +400,7 @@ export function analyzeSteps(
     if ((!action || action.type === 'custom') && !hasEmptyPlaceholder) {
       issues.push({
         severity: 'error',
-        message: 'KPlay does not understand this step yet, so it will do nothing when the test runs.',
+        message: 'KPlay does not understand this step yet, so it will fail when the test runs.',
         suggestions: suggestPatterns(step.rawText).map(withPrefix)
       });
     } else if (action && action.type !== 'custom' && step.status === 'review_required') {

@@ -97,17 +97,13 @@ test.describe('Salesforce & CareCloud RCM Notes Sync Test Suite', () => {
     await syncButton.click();
 
     // Verify modal or confirmation panel
-    const modal = page.locator('.slds-modal__container, lightning-quick-action-panel');
-    if (await modal.isVisible({ timeout: 8000 })) {
-      const cancelBtn = modal.getByRole('button', { name: /Cancel|Close/i }).first();
-      if (await cancelBtn.isVisible()) {
-        await cancelBtn.click();
-        await expect(modal).toBeHidden({ timeout: 6000 });
-        console.log('[TC_031 & TC_032] Verified Sync Notes popup opens and cancels correctly.');
-      }
-    } else {
-      console.log('[TC_031] Sync button clicked directly without blocking modal.');
-    }
+    // This test verifies the pop-up, so a missing modal or Cancel button must fail it (not pass silently)
+    const modal = page.locator('.slds-modal__container, lightning-quick-action-panel').first();
+    await expect(modal, 'Sync Notes pop-up did not open').toBeVisible({ timeout: 15000 });
+    const cancelBtn = modal.getByRole('button', { name: /Cancel|Close/i }).first();
+    await expect(cancelBtn, 'Sync Notes pop-up has no Cancel/Close button').toBeVisible();
+    await cancelBtn.click();
+    await expect(modal).toBeHidden({ timeout: 6000 });
   });
 
   /**
