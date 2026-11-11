@@ -32,7 +32,7 @@ test.describe('Revenue Operations - OPS-402', () => {
     // Step 2: 2. Open record "Recent"
     {
       await StreamHelper.setStep(page, "2. Open record \"Recent\"");
-      throw new Error("KPlay does not understand this step: \"2. Open record \"Recent\"\". Regenerate this spec in Studio or edit the code.");
+      throw new Error("Orgwright does not understand this step: \"2. Open record \"Recent\"\". Regenerate this spec in Studio or edit the code.");
     }
 
     // Step 3: 3. Activate Details tab
@@ -46,7 +46,7 @@ test.describe('Revenue Operations - OPS-402', () => {
     // Step 4: 4. Select picklist "Stage" with value "Closed Won"
     {
       await StreamHelper.setStep(page, "4. Select picklist \"Stage\" with value \"Closed Won\"");
-      throw new Error("KPlay does not understand this step: \"4. Select picklist \"Stage\" with value \"Closed Won\"\". Regenerate this spec in Studio or edit the code.");
+      throw new Error("Orgwright does not understand this step: \"4. Select picklist \"Stage\" with value \"Closed Won\"\". Regenerate this spec in Studio or edit the code.");
     }
 
     // Step 5: 5. Click button "Save"

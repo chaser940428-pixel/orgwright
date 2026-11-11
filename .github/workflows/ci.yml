@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: Parser and code generator tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: orgwright/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm --dir orgwright install --frozen-lockfile
+
+      - name: Build and test
+        run: npm run test:unit
+
+      - name: Type-check the Studio
+        run: pnpm --dir orgwright/apps/studio exec tsc --noEmit -p .

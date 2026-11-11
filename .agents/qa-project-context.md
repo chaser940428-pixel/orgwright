@@ -1,9 +1,9 @@
-# QA Project Context — ForcePlay Studio
+# QA Project Context — Orgwright Studio
 
 > Single source of truth for all QA automation skills and agent standards (petrkindlmann/qa-skills standard).
 
 ## Product
-- **Name**: ForcePlay Studio
+- **Name**: Orgwright Studio
 - **Type**: Salesforce Enterprise Test Automation Platform & Playwright Studio
 - **Target App**: Salesforce Lightning Experience (Health Cloud, Sales Cloud, Revenue Operations)
 - **Primary Org**: `sandboxOrg` (Sandbox) 

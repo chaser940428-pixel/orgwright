@@ -10,7 +10,7 @@ import { execSync } from 'child_process';
  * Auth reuses the Salesforce CLI session: `sf org display --target-org <alias>`.
  *   SF_ORG_ALIAS       org alias (default: sandboxOrg)
  *   SF_API_VERSION     REST version (default: 61.0)
- *   KPLAY_KEEP_DATA=1  keep created records (skip cleanup) for debugging
+ *   ORGWRIGHT_KEEP_DATA=1  keep created records (skip cleanup) for debugging
  */
 
 interface OrgSession {
@@ -97,8 +97,8 @@ export class SalesforceApi {
   static async cleanup(): Promise<void> {
     const toDelete = this.created.reverse();
     this.created = [];
-    if (process.env.KPLAY_KEEP_DATA === '1') {
-      if (toDelete.length) console.log(`[SalesforceApi] KPLAY_KEEP_DATA=1 — keeping ${toDelete.length} record(s)`);
+    if (process.env.ORGWRIGHT_KEEP_DATA === '1') {
+      if (toDelete.length) console.log(`[SalesforceApi] ORGWRIGHT_KEEP_DATA=1 — keeping ${toDelete.length} record(s)`);
       return;
     }
     for (const rec of toDelete) {

@@ -292,7 +292,7 @@ export class StreamHelper {
   }
 
   /**
-   * Runs one generated step. When the Studio started the run with KPLAY_PAUSE_ON_FAILURE=1,
+   * Runs one generated step. When the Studio started the run with ORGWRIGHT_PAUSE_ON_FAILURE=1,
    * a failing step pauses the live browser instead of ending the test, so the tester can
    * click the right element (or edit the step) and continue.
    */
@@ -307,7 +307,7 @@ export class StreamHelper {
   }
 
   private static async offerRepair(page: Page, stepText: string, err: any): Promise<boolean> {
-    if (process.env.KPLAY_PAUSE_ON_FAILURE !== '1') return false;
+    if (process.env.ORGWRIGHT_PAUSE_ON_FAILURE !== '1') return false;
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || page.isClosed()) return false;
 
     // A paused test must not be killed by the Playwright test timeout
@@ -316,7 +316,7 @@ export class StreamHelper {
     } catch {}
 
     let errorText = this.cleanError(err?.message || String(err));
-    const timeoutMs = Number(process.env.KPLAY_REPAIR_TIMEOUT_MS || 15 * 60 * 1000);
+    const timeoutMs = Number(process.env.ORGWRIGHT_REPAIR_TIMEOUT_MS || 15 * 60 * 1000);
 
     while (true) {
       this.repairing = true;
@@ -373,7 +373,7 @@ export class StreamHelper {
 
   /** Optional pause at the end of a headed Studio run so the tester can see the final screen. */
   static async holdForReview(page: Page): Promise<void> {
-    const ms = Number(process.env.KPLAY_HOLD_MS || 0);
+    const ms = Number(process.env.ORGWRIGHT_HOLD_MS || 0);
     if (ms > 0 && !page.isClosed()) {
       await page.waitForTimeout(ms);
     }
@@ -655,9 +655,9 @@ export class StreamHelper {
     return path.resolve(process.cwd(), 'test-results', `${this.currentTestId || 'TC_RUN'}-steps`);
   }
 
-  /** Screenshot of the page when a step finishes. Disable with KPLAY_STEP_SCREENSHOTS=0. */
+  /** Screenshot of the page when a step finishes. Disable with ORGWRIGHT_STEP_SCREENSHOTS=0. */
   private static async captureStepScreenshot(page: Page, stepNo: number): Promise<string | undefined> {
-    if (process.env.KPLAY_STEP_SCREENSHOTS === '0') return undefined;
+    if (process.env.ORGWRIGHT_STEP_SCREENSHOTS === '0') return undefined;
     try {
       if (page.isClosed()) return undefined;
       const dir = this.stepScreenshotDir();

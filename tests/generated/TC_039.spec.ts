@@ -30,7 +30,7 @@ test.describe('Alliance Orthopedics - AMS-2272', () => {
 
     // Step 3: 3. Verify field 'Owner' is not empty
     {
-      throw new Error("KPlay does not understand this step: \"3. Verify field 'Owner' is not empty\". Regenerate this spec in Studio or edit the code.");
+      throw new Error("Orgwright does not understand this step: \"3. Verify field 'Owner' is not empty\". Regenerate this spec in Studio or edit the code.");
     }
 
     // Step 4: 4. Activate Related tab

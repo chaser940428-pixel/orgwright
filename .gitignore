@@ -19,9 +19,12 @@ logs/
 .test-profile/
 
 # Local org metadata caches & run history (contain org user names/emails)
+.orgwright/
+orgwright/.orgwright/
+# legacy runtime folders from before the rename
 .kplay/
 .forceplay/
-forceplay/.forceplay/
+orgwright/.forceplay/
 
 # Throwaway debugging scripts & screenshots against the live sandbox (kept locally)
 scratch/
@@ -35,3 +38,6 @@ _backup_before_ux_fixes_20261110/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local Claude Code settings
+.claude/

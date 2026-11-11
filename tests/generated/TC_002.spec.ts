@@ -112,7 +112,7 @@ test.describe('Alliance Orthopedics - RCM Sync - AMS-2272', () => {
     // Step 10: 10.new RUL record should be opened
     {
       await StreamHelper.setStep(page, "10.new RUL record should be opened");
-      throw new Error("KPlay does not understand this step: \"10.new RUL record should be opened\". Regenerate this spec in Studio or edit the code.");
+      throw new Error("Orgwright does not understand this step: \"10.new RUL record should be opened\". Regenerate this spec in Studio or edit the code.");
     }
 
     // Hold view for tester to visually confirm final state

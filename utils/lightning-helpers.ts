@@ -273,7 +273,7 @@ export class LightningHelpers {
   }
 
   // ---------------------------------------------------------------------------------------
-  // Field reading, negative checks and permission checks (used by KPlay generated specs).
+  // Field reading, negative checks and permission checks (used by Orgwright generated specs).
   // All failures throw plain-language errors so the Studio can show them to testers as-is.
   // ---------------------------------------------------------------------------------------
 
@@ -447,7 +447,7 @@ export class LightningHelpers {
     try {
       await item.waitFor({ state: 'visible', timeout: 15000 });
     } catch {
-      throw new Error(`Field "${label}" is not on the page, so KPlay could not check that it is ${purpose}. If the field is hidden for this user, use: Verify field "${label}" is not visible.`);
+      throw new Error(`Field "${label}" is not on the page, so Orgwright could not check that it is ${purpose}. If the field is hidden for this user, use: Verify field "${label}" is not visible.`);
     }
     return item;
   }

@@ -1,9 +1,10 @@
 {
-  "name": "kplay-studio-salesforce",
+  "name": "orgwright",
   "version": "1.0.0",
-  "description": "KPlay Studio - Enterprise Salesforce Quality & Automation Platform",
+  "description": "Write Salesforce tests in plain English, get real Playwright code.",
   "main": "index.js",
   "scripts": {
+    "setup": "npm install && pnpm --dir orgwright install && pnpm --dir orgwright -r run build",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
@@ -13,27 +14,27 @@
     "test:regression:headed": "playwright test tests/generated/ --project=salesforce --headed",
     "test:report": "playwright show-report",
     "auth:refresh": "playwright test tests/auth.setup.ts --project=setup",
-    "studio": "pnpm --prefix forceplay --filter @kplay/studio start",
-    "studio:server": "pnpm --prefix forceplay --filter @kplay/studio run server",
-    "studio:ui": "pnpm --prefix forceplay --filter @kplay/studio run dev",
-    "kplay:build": "pnpm --prefix forceplay -r run build",
-    "suite:nightly": "pnpm --prefix forceplay --filter @kplay/studio exec tsx server/cli/run-suite.ts",
-    "test:helpers": "playwright test -c tests-kplay/playwright.unit.config.ts",
-    "test:parser": "node --test \"forceplay/packages/resolver/test/*.test.mjs\"",
-    "fixture:capture": "npx tsx tests-kplay/capture-fixture.ts",
-    "test:codegen": "node --test \"forceplay/packages/codegen/test/*.test.mjs\"",
-    "test:unit": "pnpm --prefix forceplay -r run build && node --test \"forceplay/packages/resolver/test/*.test.mjs\" \"forceplay/packages/codegen/test/*.test.mjs\""
+    "studio": "pnpm --prefix orgwright --filter @orgwright/studio start",
+    "studio:server": "pnpm --prefix orgwright --filter @orgwright/studio run server",
+    "studio:ui": "pnpm --prefix orgwright --filter @orgwright/studio run dev",
+    "orgwright:build": "pnpm --prefix orgwright -r run build",
+    "suite:nightly": "pnpm --prefix orgwright --filter @orgwright/studio exec tsx server/cli/run-suite.ts",
+    "test:helpers": "playwright test -c tests-orgwright/playwright.unit.config.ts",
+    "test:parser": "node --test \"orgwright/packages/resolver/test/*.test.mjs\"",
+    "fixture:capture": "npx tsx tests-orgwright/capture-fixture.ts",
+    "test:codegen": "node --test \"orgwright/packages/codegen/test/*.test.mjs\"",
+    "test:unit": "pnpm --prefix orgwright -r run build && node --test \"orgwright/packages/resolver/test/*.test.mjs\" \"orgwright/packages/codegen/test/*.test.mjs\""
   },
   "keywords": [
     "salesforce",
     "crm",
     "automation",
     "testing",
-    "kplay",
+    "orgwright",
     "quality"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Krishna Kumar",
+  "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.0",
@@ -43,5 +44,9 @@
   "dependencies": {
     "@types/ws": "^8.18.2",
     "ws": "^8.22.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/krishnakumar11oct1995-star/orgwright.git"
   }
 }

@@ -14,7 +14,7 @@
   "include": [
     "pages/**/*.ts",
     "tests/**/*.ts",
-    "tests-kplay/**/*.ts",
+    "tests-orgwright/**/*.ts",
     "utils/**/*.ts",
     "playwright.config.ts"
   ]

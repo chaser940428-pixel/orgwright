@@ -1,0 +1,19 @@
+{
+  "name": "orgwright-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Orgwright monorepo: Studio app and the parser, code generator, introspector and runner packages",
+  "scripts": {
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "studio": "pnpm --filter @orgwright/studio start",
+    "studio:server": "pnpm --filter @orgwright/studio run server",
+    "studio:ui": "pnpm --filter @orgwright/studio run dev",
+    "clean": "pnpm -r run clean"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.10.0"
+  },
+  "license": "MIT"
+}

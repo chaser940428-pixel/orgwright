@@ -1,5 +1,5 @@
 /**
- * KPlayData — run-time test data for generated specs.
+ * OrgwrightData — run-time test data for generated specs.
  *
  * Steps can contain tokens that are resolved fresh on every run, so re-running a test
  * never collides with duplicate rules or yesterday's records:
@@ -10,7 +10,7 @@
  *   {{random.phone}}   (555) xxx-xxxx
  *   {{random.number}}  1..99999
  *   {{random.text}}    readable word pair, e.g. "Silver Falcon"
- *   {{today}}          today's date in KPLAY_DATE_FORMAT (default MM/DD/YYYY)
+ *   {{today}}          today's date in ORGWRIGHT_DATE_FORMAT (default MM/DD/YYYY)
  *   {{today+7}}        date offset in days ({{today-3}} for the past)
  *   {{now}}            date + time (HH:mm)
  *   {{myVar}}          any value saved earlier with "Remember field "X" as myVar"
@@ -33,7 +33,7 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-export function formatDate(date: Date, format = process.env.KPLAY_DATE_FORMAT || 'MM/DD/YYYY'): string {
+export function formatDate(date: Date, format = process.env.ORGWRIGHT_DATE_FORMAT || 'MM/DD/YYYY'): string {
   return format
     .replace(/YYYY/g, String(date.getFullYear()))
     .replace(/MM/g, pad(date.getMonth() + 1))
@@ -42,7 +42,7 @@ export function formatDate(date: Date, format = process.env.KPLAY_DATE_FORMAT ||
     .replace(/mm/g, pad(date.getMinutes()));
 }
 
-export class KPlayData {
+export class OrgwrightData {
   private static runId = shortId();
   private static vars = new Map<string, string>();
 
@@ -57,7 +57,7 @@ export class KPlayData {
     for (const [k, v] of Object.entries(row || {})) {
       if (k.trim()) this.vars.set(k.trim(), String(v ?? ''));
     }
-    console.log(`[KPlayData] Data row: ${JSON.stringify(row)}`);
+    console.log(`[OrgwrightData] Data row: ${JSON.stringify(row)}`);
   }
 
   /** The run-scoped {{unique}} value. */
@@ -65,14 +65,14 @@ export class KPlayData {
     return this.runId;
   }
 
-  /** Save a value for later steps, e.g. KPlayData.set('caseId', '500...'). */
+  /** Save a value for later steps, e.g. OrgwrightData.set('caseId', '500...'). */
   static set(name: string, value: string | undefined | null): void {
     const clean = name.replace(/^\{\{\s*|\s*\}\}$/g, '').trim();
     if (value === undefined || value === null || String(value).trim() === '') {
-      throw new Error(`KPlay could not capture a value for {{${clean}}} — the field or record Id was empty or not found on the page.`);
+      throw new Error(`Orgwright could not capture a value for {{${clean}}} — the field or record Id was empty or not found on the page.`);
     }
     this.vars.set(clean, String(value).trim());
-    console.log(`[KPlayData] {{${clean}}} = ${String(value).trim()}`);
+    console.log(`[OrgwrightData] {{${clean}}} = ${String(value).trim()}`);
   }
 
   static get(name: string): string | undefined {
@@ -100,7 +100,7 @@ export class KPlayData {
       return `${a} ${n}`;
     }
     if (lower === 'now') {
-      const fmt = (process.env.KPLAY_DATE_FORMAT || 'MM/DD/YYYY') + ' HH:mm';
+      const fmt = (process.env.ORGWRIGHT_DATE_FORMAT || 'MM/DD/YYYY') + ' HH:mm';
       return formatDate(new Date(), fmt);
     }
     const dateMatch = lower.match(/^today(?:([+-])(\d+))?$/);

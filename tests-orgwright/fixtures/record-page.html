@@ -1,0 +1,89 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Encounter E-0001 | Salesforce</title></head>
+<body>
+<!-- Simplified Lightning record page used to regression-test utils/lightning-helpers.ts.
+     Replace or add real pages captured with tests-orgwright/capture-fixture.ts. -->
+<header>
+  <button aria-label="Search" onclick="document.getElementById('gs').style.display='block'">Search...</button>
+  <div id="gs" style="display:none"><input type="search" placeholder="Search..." onkeydown="if(event.key==='Enter'){document.getElementById('results').style.display='block'}"></div>
+  <div id="results" style="display:none"><table><tbody><tr><th><a data-refid="recordId" href="#acme" onclick="document.title='Acme opened'">Acme Corp</a></th></tr></tbody></table></div>
+</header>
+<div class="slds-page-header">
+  <h1>Encounter E-0001</h1>
+  <button>Edit</button>
+  <button onclick="openModal('delete')">Delete</button>
+  <button onclick="openModal('owner')">Change Owner</button>
+  <button aria-label="Show more actions" onclick="document.getElementById('more').style.display='block'">More</button>
+  <div id="more" role="menu" style="display:none">
+    <div role="menuitem" onclick="openModal('approval')">Submit for Approval</div>
+    <div role="menuitem">Clone</div>
+  </div>
+</div>
+
+<div class="slds-path__nav">
+  <ul>
+    <li class="slds-path__item"><a class="slds-path__link" title="Scheduled" onclick="pathSel('Scheduled')">Scheduled</a></li>
+    <li class="slds-path__item"><a class="slds-path__link" title="Checked In" onclick="pathSel('Checked In')">Checked In</a></li>
+    <li class="slds-path__item"><a class="slds-path__link" title="Completed" onclick="pathSel('Completed')">Completed</a></li>
+  </ul>
+  <button id="markCurrent" style="display:none" onclick="document.getElementById('stage').textContent=window.__sel; this.style.display='none'">Mark as Current Stage</button>
+</div>
+
+<div role="tablist"><a role="tab">Details</a><a role="tab" onclick="document.getElementById('related').style.display='block'">Related</a></div>
+
+<section id="details">
+  <records-record-layout-item><span class="test-id__field-label">Encounter Number</span><lightning-formatted-text>E-0001</lightning-formatted-text></records-record-layout-item>
+  <records-record-layout-item><span class="test-id__field-label">Status</span><lightning-formatted-text id="stage">Scheduled</lightning-formatted-text><button title="Edit Status" class="inline-edit-trigger" onclick="inlineEdit()">✎</button></records-record-layout-item>
+  <records-record-layout-item id="notesItem"><span class="test-id__field-label">Clinical Notes</span><lightning-formatted-text id="notesVal">Initial</lightning-formatted-text><button title="Edit Clinical Notes" class="inline-edit-trigger" onclick="inlineEditNotes()">✎</button></records-record-layout-item>
+  <records-record-layout-item><span class="test-id__field-label">Billed Charges</span><lightning-formatted-number>$1,250.00</lightning-formatted-number></records-record-layout-item>
+  <lightning-dual-listbox>
+    <span class="slds-form-element__label">Languages</span>
+    <ul role="listbox" aria-label="Available"><li role="option" onclick="this.classList.add('sel')">Spanish</li><li role="option">French</li></ul>
+    <button title="Move selection to Chosen" onclick="moveChosen()">&gt;</button>
+    <ul role="listbox" id="chosen" aria-label="Chosen"></ul>
+  </lightning-dual-listbox>
+</section>
+
+<section id="related" style="display:none">
+  <article class="slds-card">
+    <div class="slds-card__header"><h2 class="slds-card__header-title"><a href="#contacts" onclick="document.title='Contacts list'"><span title="Contacts">Contacts</span> (3)</a></h2>
+      <button>New</button></div>
+    <table><tbody><tr><td>A</td></tr><tr><td>B</td></tr><tr><td>C</td></tr></tbody></table>
+  </article>
+  <article class="slds-card">
+    <div class="slds-card__header"><h2 class="slds-card__header-title"><a href="#notes"><span title="Notes">Notes</span> (10+)</a></h2>
+      <lightning-button-menu><button aria-haspopup="true" onclick="document.getElementById('notesMenu').style.display='block'">▼</button></lightning-button-menu>
+      <div id="notesMenu" style="display:none"><div role="menuitem">New Note</div></div></div>
+  </article>
+</section>
+
+<div id="modalHost"></div>
+<script>
+  window.__sel = '';
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.getElementById('more').style.display = 'none'; });
+  function pathSel(v) { window.__sel = v; document.getElementById('markCurrent').style.display = 'inline-block'; }
+  function moveChosen() {
+    const sel = document.querySelector('li.sel'); if (sel) { sel.classList.remove('sel'); document.getElementById('chosen').appendChild(sel); }
+  }
+  function inlineEdit() {}
+  function inlineEditNotes() {
+    const item = document.getElementById('notesItem');
+    item.innerHTML = '<label class="slds-form-element__label">Clinical Notes</label><textarea id="notesInput"></textarea>';
+    const footer = document.createElement('div'); footer.className = 'slds-docked-form-footer';
+    footer.innerHTML = '<button onclick="saveNotes()">Save</button>'; document.body.appendChild(footer);
+  }
+  function saveNotes() {
+    const v = document.getElementById('notesInput').value;
+    document.getElementById('notesItem').innerHTML = '<span class="test-id__field-label">Clinical Notes</span><lightning-formatted-text>' + v + '</lightning-formatted-text>';
+    document.querySelector('.slds-docked-form-footer').remove();
+  }
+  function closeModal() { document.getElementById('modalHost').innerHTML = ''; }
+  function openModal(kind) {
+    document.getElementById('more').style.display = 'none';
+    const host = document.getElementById('modalHost');
+    if (kind === 'delete') host.innerHTML = '<section role="dialog"><h2>Delete Encounter</h2><button onclick="closeModal()">Cancel</button><button onclick="closeModal();document.title=\'deleted\'">Delete</button></section>';
+    if (kind === 'owner') host.innerHTML = '<section role="dialog"><h2>Change Owner</h2><input placeholder="Search Users..." oninput="document.getElementById(\'opts\').style.display=\'block\'"><div id="opts" style="display:none"><div role="option" onclick="this.dataset.picked=1">Jane Doe</div></div><button onclick="closeModal();document.title=\'owner changed\'">Submit</button></section>';
+    if (kind === 'approval') host.innerHTML = '<section role="dialog"><h2>Submit for Approval</h2><textarea></textarea><button onclick="window.__comment=document.querySelector(\'section textarea\').value;closeModal()">Submit</button></section>';
+  }
+</script>
+</body></html>
