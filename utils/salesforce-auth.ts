@@ -97,7 +97,7 @@ export class SalesforceAuth {
       if (!username || !password) {
         throw new Error('[SalesforceAuth] CLI login failed and SF_USERNAME / SF_PASSWORD are not set in .env');
       }
-      if (await page.locator('#username').isVisible({ timeout: 10000 })) {
+      if (await page.locator('#username').waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false)) {
         await page.locator('#username').fill(username);
         await page.locator('#password').fill(password);
         await page.locator('#Login').click();

@@ -272,7 +272,7 @@ export class LightningHelpers {
         .or(page.locator(`runtime_platform_actions-action-renderer:has-text("${name}"), [role="menuitem"]:has-text("${name}")`))
         .first();
 
-      if (await menuItem.isVisible({ timeout: 4000 })) {
+      if (await menuItem.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) {
         await menuItem.click();
         await this.waitForLightningReady(page);
         return;
@@ -590,7 +590,7 @@ export class LightningHelpers {
     if (await menu.isVisible().catch(() => false)) {
       await menu.click();
       const item = page.getByRole('menuitem', { name: nameRe }).first();
-      if (await item.isVisible({ timeout: 4000 }).catch(() => false)) {
+      if (await item.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) {
         await item.click();
         await this.waitForLightningReady(page);
         return;
@@ -642,7 +642,7 @@ export class LightningHelpers {
     await this.waitForLightningReady(page);
     const buttonRe = mark === 'complete' ? /Mark (Stage|Status) as Complete/i : /Mark as Current (Stage|Status)/i;
     const button = page.getByRole('button', { name: buttonRe }).first();
-    if (await button.isVisible({ timeout: 5000 }).catch(() => false)) {
+    if (await button.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
       await button.click();
       await this.waitForLightningReady(page);
     } else {
@@ -878,7 +878,7 @@ export class LightningHelpers {
       .locator('one-app-nav-bar-item-root a, one-app-nav-bar a.slds-context-bar__label-action, nav[role="navigation"] one-app-nav-bar-item-root a')
       .filter({ hasText: nameRe })
       .first();
-    if (await barItem.isVisible({ timeout: 8000 }).catch(() => false)) {
+    if (await barItem.waitFor({ state: 'visible', timeout: 8000 }).then(() => true, () => false)) {
       await barItem.click();
       await this.waitForPageSettled(page);
       return;
@@ -896,7 +896,7 @@ export class LightningHelpers {
         .locator('one-app-nav-bar-menu-item a, [role="menuitem"], [role="menuitemcheckbox"]')
         .filter({ hasText: nameRe })
         .first();
-      if (await item.isVisible({ timeout: 4000 }).catch(() => false)) {
+      if (await item.waitFor({ state: 'visible', timeout: 4000 }).then(() => true, () => false)) {
         await item.click();
         await this.waitForPageSettled(page);
         return;
@@ -947,7 +947,7 @@ export class LightningHelpers {
     await picker.click();
 
     const search = page.locator('input[placeholder^="Search lists" i], .listViewPickerDropdown input[type="search"], .slds-dropdown input[type="search"]').first();
-    if (await search.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await search.waitFor({ state: 'visible', timeout: 3000 }).then(() => true, () => false)) {
       await search.fill(viewName);
     }
     const options = page.locator('.slds-dropdown [role="option"], .listViewPickerDropdown [role="option"], .slds-dropdown li a, [role="listbox"] [role="option"]');
