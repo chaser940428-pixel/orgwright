@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_094",
+  "ticketNumber": "OS-NP-102",
+  "testName": "NPSP: Recurring Donation Installment Schedule Auto-Generation",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "npe03__Recurring_Donation__c",
+  "steps": "1. Open Recurring Donations tab\n2. Click on New button\n3. Select Contact Donor \"Dr. Marcus Thorne\"\n4. Enter Amount \"$250.00\"\n5. Select Recurring Type \"Open-Ended\"\n6. Select Installment Frequency \"Monthly\" with Day of Month \"15th\"\n7. Click on Save button\n8. Wait for NPSP asynchronous trigger execution\n9. Open child Donations related list\n10. Verify next 12 monthly donation Opportunity records are spawned in \"Pledged\" stage with correct 15th-of-month close dates",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.777Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_004",
+  "ticketNumber": "CRM-103",
+  "testName": "Update Opportunity Stage to Closed Won and Validate Amount",
+  "project": "Sales Cloud",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Click on recent Opportunity record\n3. Click on Edit button\n4. Select \"Closed Won\" from Stage picklist\n5. Enter \"250000\" in Amount field\n6. Click on Save button\n7. Verify Stage is \"Closed Won\"",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T12:00:00.000Z",
+  "specCode": ""
+}

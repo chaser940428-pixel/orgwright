@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_006",
+  "ticketNumber": "SALES-106",
+  "testName": "Opportunity Closed Won Validation Rule Check",
+  "project": "Sales Cloud",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Open recent Opportunity record\n3. Click on Edit button\n4. Select \"Closed Won\" from Stage picklist\n5. Clear Amount field to empty\n6. Click on Save button\n7. Verify error banner \"Amount is required to close an Opportunity as Won\"\n8. Enter \"150000\" in Amount field\n9. Click on Save button\n10. Verify toast \"Opportunity was saved\" and Stage is \"Closed Won\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.744Z"
+}

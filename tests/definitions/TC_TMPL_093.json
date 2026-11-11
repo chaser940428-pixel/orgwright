@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_093",
+  "ticketNumber": "OS-NP-101",
+  "testName": "NPSP: Donation Split with General Accounting Unit (GAU) Allocations",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "npsp__Allocation__c",
+  "steps": "1. Open Donations (Opportunities) tab\n2. Click on New button\n3. Select Record Type \"Donation\"\n4. Enter Opportunity Name \"Rockefeller Annual Endowment Grant\"\n5. Select Account \"The Rockefeller Foundation\"\n6. Enter Amount \"$100,000\" and Stage \"Closed Won\"\n7. Click on Save button\n8. Scroll to GAU Allocations related list and click \"Manage Allocations\"\n9. Allocate 70% ($70,000) to General Accounting Unit \"Youth STEM Scholarship Fund\"\n10. Allocate 30% ($30,000) to General Accounting Unit \"Campus Building Fund\"\n11. Click on Save button\n12. Verify Total Allocated equals 100% and unallocated amount equals $0.00",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.776Z"
+}

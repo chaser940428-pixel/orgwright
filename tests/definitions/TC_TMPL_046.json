@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_046",
+  "ticketNumber": "COMM-101",
+  "testName": "B2B Storefront Buyer Portal Login & Entitlement Policy Verification",
+  "project": "Commerce Cloud",
+  "objectName": "WebStore",
+  "steps": "1. Open B2B Commerce Storefront URL\n2. Click on \"Sign In\" button in top navigation\n3. Log in with Buyer User credentials \"buyer@precisionmfg.example\"\n4. Verify buyer header displays Account Name \"Precision Manufacturing Corp\"\n5. Verify buyer is assigned Buyer Group \"Tier 1 Platinum Wholesale\"\n6. Browse Product Categories: Industrial Valves, High-Pressure Hoses, Actuators\n7. Verify restricted category \"Defense Grade Components\" is hidden per Entitlement Policy",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.759Z"
+}

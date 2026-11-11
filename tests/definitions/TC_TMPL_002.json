@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_002",
+  "ticketNumber": "SALES-102",
+  "testName": "Qualify Lead and Convert to Account, Contact and Opportunity",
+  "project": "Sales Cloud",
+  "objectName": "Lead",
+  "steps": "1. Open Leads tab\n2. Open record \"Recent\"\n3. Click on Convert button in Lightning header\n4. Select \"Create New Account\"\n5. Select \"Create New Opportunity\" and enter \"Apex Cloud - Enterprise License\" in Opportunity Name\n6. Select \"Closed - Converted\" from Converted Status\n7. Click on Convert button in modal\n8. Verify success modal \"Your lead has been converted\"\n9. Click on Go to Opportunity button\n10. Verify Opportunity details page is opened",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.743Z"
+}

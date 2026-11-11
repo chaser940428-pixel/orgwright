@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_001",
+  "ticketNumber": "SALES-101",
+  "testName": "Create New Lead and Verify Assignment Rules",
+  "project": "Sales Cloud",
+  "objectName": "Lead",
+  "steps": "1. Open Leads tab\n2. Click on New button\n3. Enter \"Marcus\" in First Name\n4. Enter \"Vance\" in Last Name\n5. Enter \"Apex Cloud Technologies\" in Company\n6. Select \"Technology\" from Industry picklist\n7. Enter \"marcus.vance@apexcloud.example\" in Email field\n8. Select \"USA\" from Country field\n9. Click on Save button\n10. Verify toast \"Lead was created\"\n11. Verify field \"Lead Status\" equals \"Open - Not Contacted\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.742Z"
+}

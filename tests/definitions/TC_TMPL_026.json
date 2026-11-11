@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_026",
+  "ticketNumber": "SFS-105",
+  "testName": "Preventive Maintenance Plan Generation & Work Order Batch",
+  "project": "Field Service (SFS)",
+  "objectName": "MaintenancePlan",
+  "steps": "1. Open Maintenance Plans tab\n2. Click on New button\n3. Enter \"HVAC Quarterly Inspection Plan\" in Maintenance Plan Name\n4. Select Account \"Acme Industrial Plants\"\n5. Select Frequency \"3 Months\" with Generation Horizon \"14 Days\"\n6. Link Asset \"Industrial Chiller Unit #A102\"\n7. Click on Save button\n8. Click on \"Generate Work Orders\" action button (or execute maintenance batch)\n9. Verify Work Order is spawned with Suggested Maintenance Date set to 3 months from plan start\n10. Verify Work Order links directly to Asset #A102 with correct Work Type",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.751Z"
+}

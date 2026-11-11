@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_089",
+  "ticketNumber": "OS-DH-103",
+  "testName": "DreamHouse: Mortgage Calculator LWC Amortization Calculation",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "Property__c",
+  "steps": "1. Open Property record with Price \"$750,000\"\n2. Locate embedded \"Mortgage Calculator\" LWC component\n3. Verify Principal Amount auto-populates \"$750,000\"\n4. In Down Payment input, enter \"$150,000\" (20%)\n5. Select Loan Term \"30 Years Fixed\"\n6. Enter Annual Interest Rate \"6.5%\"\n7. Verify calculated Monthly Payment displays \"$3,792.41\"\n8. Change Interest Rate to \"5.5%\"\n9. Verify Monthly Payment dynamically recalculates to \"$3,406.73\" immediately",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.771Z"
+}

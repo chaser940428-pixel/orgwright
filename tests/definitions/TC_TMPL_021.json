@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_021",
+  "ticketNumber": "SRV-106",
+  "testName": "Case Swarming with Slack & Cross-Functional Escalation",
+  "project": "Service Cloud",
+  "objectName": "Case",
+  "steps": "1. Open high-priority Incident Case record in Service Console\n2. Click on \"Start Swarm\" button in highlights panel\n3. Enter Swarm Name \"P1 Outage - US East Database Latency\"\n4. Select Swarm Channel type \"Dedicated Slack Channel\"\n5. Add DevOps and Database Architect subject matter experts\n6. Click on \"Start Swarming\" button\n7. Verify Swarm record is generated with Status \"In Progress\"\n8. Click \"Finish Swarm\" button with Resolution Summary\n9. Verify Swarm status updates to \"Closed\" and transcript summary links to parent Case timeline",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.749Z"
+}

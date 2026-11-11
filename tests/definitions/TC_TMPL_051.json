@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_051",
+  "ticketNumber": "MKT-102",
+  "testName": "Prospect-to-Salesforce Lead Bi-directional Sync & Error Queue Monitoring",
+  "project": "Marketing Cloud",
+  "objectName": "Lead",
+  "steps": "1. In Account Engagement, assign Prospect \"Samantha Cole\" to Salesforce Queue \"Inbound Marketing Leads\"\n2. Wait for Salesforce-Pardot Connector sync cycle (approx 1-2 minutes)\n3. In Salesforce Core, open Leads tab\n4. Search for \"Samantha Cole\"\n5. Verify Lead record exists with Pardot Score \"50\" and Lead Source \"Whitepaper Download\"\n6. Edit Lead in Salesforce, update Phone Number to \"+1 555-019-2831\" and click Save\n7. In Account Engagement, refresh Prospect record\n8. Verify Phone field is updated with matching value\n9. Open Pardot Sync Errors queue in Marketing Setup and verify zero synchronization failure alerts",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.761Z"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "TC_003",
+  "ticketNumber": "SRV-201",
+  "testName": "Log Customer Support Case and Verify Priority Escalation",
+  "project": "Service Cloud",
+  "objectName": "Case",
+  "steps": "1. Open Cases tab\n2. Click on New button\n3. Select \"High\" from Priority picklist\n4. Select \"Email\" from Case Origin\n5. Enter \"API Gateway Timeout\" in Subject\n6. Click on Save button\n7. Verify field \"Priority\" equals \"High\"",
+  "lastStatus": "failed",
+  "updatedAt": "2026-11-07T12:00:00.000Z",
+  "specCode": "import { test, expect } from '@playwright/test';\nimport { BasePage } from '../../pages/BasePage';\nimport { EncounterNotesPage } from '../../pages/EncounterNotesPage';\nimport { LightningHelpers } from '../../utils/lightning-helpers';\nimport { StreamHelper } from '../../utils/stream-helper';\n\ntest.describe('Sales Cloud - TC_003', () => {\n  let basePage: BasePage;\n  let encounterPage: EncounterNotesPage;\n\n  test.beforeEach(async ({ page }) => {\n    basePage = new BasePage(page);\n    encounterPage = new EncounterNotesPage(page);\n    await StreamHelper.attach(page, 'TC_003');\n  });\n\n  test.afterEach(async ({ page }, testInfo) => {\n    const failed = testInfo.status !== testInfo.expectedStatus;\n    await StreamHelper.detach(failed ? { page, error: testInfo.error?.message } : { page });\n  });\n\n  /**\n   * Automated Salesforce Workflow\n   */\n  test('Automated Salesforce Workflow', async ({ page }) => {\n    // Step 1: 1. Log in to Salesforce\n    await StreamHelper.runStep(page, \"1. Log in to Salesforce\", async () => {\n      await page.goto('/lightning/page/home', { waitUntil: 'domcontentloaded' });\n      await expect(page).toHaveURL(/lightning|one\\.app/);\n      await LightningHelpers.waitForLightningReady(page);\n    });\n\n    // Step 2: 2. Click App Launcher\n    await StreamHelper.runStep(page, \"2. Click App Launcher\", async () => {\n      await LightningHelpers.openAppLauncher(page);\n    });\n\n    // Step 3: 3. Search app \"Intake\"\n    await StreamHelper.runStep(page, \"3. Search app \\\"Intake\\\"\", async () => {\n      await LightningHelpers.openApp(page, \"Intake\");\n    });\n\n    // Step 4: 4. Wait for page to load\n    await StreamHelper.runStep(page, \"4. Wait for page to load\", async () => {\n      await LightningHelpers.waitForPageSettled(page);\n    });\n\n    // Step 5: 5. Select \"Accounts\" tab\n    await StreamHelper.runStep(page, \"5. Select \\\"Accounts\\\" tab\", async () => {\n      await LightningHelpers.selectNavTab(page, \"Accounts\", \"Account\");\n    });\n\n    // Step 6: 6. Select list view \"All Accounts\"\n    await StreamHelper.runStep(page, \"6. Select list view \\\"All Accounts\\\"\", async () => {\n      await LightningHelpers.selectListView(page, \"All Accounts\");\n    });\n\n    await StreamHelper.holdForReview(page);\n  });\n});\n",
+  "lastDurationMs": 13712475,
+  "lastRunAt": "2026-11-10T13:16:23.708Z",
+  "lastPersona": "Current Admin [System Administrator]",
+  "codeEdited": false
+}

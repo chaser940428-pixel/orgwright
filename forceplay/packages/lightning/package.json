@@ -1,0 +1,22 @@
+{
+  "name": "@kplay/lightning",
+  "version": "1.0.0",
+  "description": "Open-Source Playwright Helpers for Salesforce Lightning, LWC, and Shadow DOM",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@kplay/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.10.0"
+  }
+}

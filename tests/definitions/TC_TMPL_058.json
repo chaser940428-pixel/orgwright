@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_058",
+  "ticketNumber": "EXP-101",
+  "testName": "Dynamic Forms Conditional Field Visibility by User Profile",
+  "project": "Experience Cloud",
+  "objectName": "Account",
+  "steps": "1. Log in to Salesforce as Partner Community User persona\n2. Navigate to shared Account record detail page\n3. Verify \"Credit Rating\" and \"Internal Notes\" fields are completely hidden from page layout\n4. Log in as Internal Sales Operations user\n5. Open the same Account record\n6. Verify \"Credit Rating\" and \"Internal Notes\" sections are visible and editable",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.763Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_050",
+  "ticketNumber": "MKT-101",
+  "testName": "Marketing Form Handler Submission & Prospect Capture",
+  "project": "Marketing Cloud",
+  "objectName": "Lead",
+  "steps": "1. Open Marketing Landing Page URL with test web form\n2. Enter First Name \"Samantha\", Last Name \"Cole\"\n3. Enter Email \"samantha.cole@cloudtechpartners.example\"\n4. Enter Company \"CloudTech Partners\"\n5. Select Interest \"Enterprise Cloud Migration\"\n6. Click on \"Download Whitepaper\" submit button\n7. Verify instant redirect to Thank-You download page\n8. In Account Engagement (Pardot), open Prospects tab\n9. Search for \"samantha.cole@cloudtechpartners.example\"\n10. Verify Prospect record is created with Score 50 and Campaign \"2026 Cloud Migration Whitepaper\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.761Z"
+}

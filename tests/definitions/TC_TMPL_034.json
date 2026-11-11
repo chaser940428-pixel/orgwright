@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_034",
+  "ticketNumber": "FSC-104",
+  "testName": "KYC / Anti-Money Laundering (AML) Compliance Verification & ID Upload",
+  "project": "Financial Services (FSC)",
+  "objectName": "Account",
+  "steps": "1. Open Person Account record\n2. Navigate to KYC & Compliance tab\n3. Select KYC Status \"Pending Verification\"\n4. Enter Tax Identification Number (TIN/SSN)\n5. Select Tax Residency Country \"United States\"\n6. Upload scanned Passport image via Files component\n7. Click \"Submit for KYC Review\" button\n8. Log in as Compliance Officer persona\n9. Review submitted documents and click \"Approve KYC\"\n10. Verify KYC Status updates to \"Verified\" with current verification timestamp and badge",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.755Z"
+}

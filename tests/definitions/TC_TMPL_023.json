@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_023",
+  "ticketNumber": "SFS-102",
+  "testName": "Service Appointment Auto-Scheduling & Dispatcher Gantt Assignment",
+  "project": "Field Service (SFS)",
+  "objectName": "ServiceAppointment",
+  "steps": "1. Open Field Service Dispatcher Console (Gantt tab)\n2. Filter Service List by Service Territory \"Midwest Metro\"\n3. Locate unscheduled Service Appointment \"SA-00412\"\n4. Click on \"Book Appointment\" or \"Schedule\" action button\n5. Verify scheduling policy scores matching technicians based on operating hours, travel time, and skills\n6. Select recommended time slot (Tomorrow 09:00 AM - 11:00 AM)\n7. Drag appointment onto assigned Service Resource \"Carlos Rivera\" on Gantt calendar\n8. Verify appointment status updates to \"Scheduled\" and Gantt bar turns blue\n9. Click \"Dispatch\" button to push appointment to technician's mobile device",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.750Z"
+}

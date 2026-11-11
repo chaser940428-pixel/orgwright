@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_091",
+  "ticketNumber": "OS-EB-102",
+  "testName": "E-Bikes: Order Submission & Assembly Line Allocation Flow",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "Order_Item__c",
+  "steps": "1. In E-Bikes Customizer, click \"Add to Order\"\n2. Select Customer Account \"Active Commuters Portland\"\n3. Enter Quantity \"10\"\n4. Verify Order Total reflects \"$25,690.00\"\n5. Click on \"Submit Order for Assembly\" button\n6. Verify Order status transitions to \"Queued for Production\"\n7. Open generated Order record in Salesforce\n8. Verify child Assembly Parts related list contains motors (10 units), batteries (10 units), and shifters (10 units)",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.774Z"
+}

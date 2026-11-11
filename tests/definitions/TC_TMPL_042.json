@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_042",
+  "ticketNumber": "AGENT-102",
+  "testName": "Conversational Action Execution & Parameter Extraction to Flow/Apex",
+  "project": "Agentforce & AI",
+  "objectName": "Agentforce",
+  "steps": "1. Open Agentforce chat interface\n2. Submit prompt: \"Please change the shipping address for my order 50021 to 742 Evergreen Terrace, Springfield.\"\n3. Verify Agent inspects conversation and extracts slots: OrderNumber='50021', NewAddress='742 Evergreen Terrace, Springfield'\n4. Verify Agent responds: \"I have updated the shipping address for order 50021. Would you like a confirmation email?\"\n5. In Salesforce CRM, open Order record #50021\n6. Verify Shipping Street address field is updated to \"742 Evergreen Terrace\" in database\n7. Verify Order History logs execution by Agentforce Bot User",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.757Z"
+}

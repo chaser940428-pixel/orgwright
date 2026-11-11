@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_067",
+  "ticketNumber": "SEC-105",
+  "testName": "Permission Set Group Muting Permission Enforcement",
+  "project": "Platform & Security",
+  "objectName": "Account",
+  "steps": "1. In Setup, inspect Permission Set Group \"PSG_Regional_Partner_Sales\"\n2. Verify group includes Permission Set granting Account Delete, but Muting Permission Set mutes \"Delete on Account\"\n3. Log in as user assigned to this PSG\n4. Open an Account record\n5. Verify \"Delete\" button is absent from Lightning record actions\n6. Attempt direct delete via URL/action and verify authorization exception",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.765Z"
+}

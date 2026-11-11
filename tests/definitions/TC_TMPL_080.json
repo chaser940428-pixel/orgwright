@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_080",
+  "ticketNumber": "OMNI-103",
+  "testName": "Integration Procedure (IP) Orchestration & External REST Callout",
+  "project": "Omnistudio & Vlocity",
+  "objectName": "IntegrationProcedure",
+  "steps": "1. In OmniStudio Designer, open Integration Procedure \"IP_GetCreditRatingAndCreditLimit\"\n2. Click on \"Preview\" tab\n3. Enter Input JSON: {\"AccountId\": \"001xxxxxxxxxxxx\", \"TaxId\": \"12-3456789\"}\n4. Click \"Execute\" button\n5. In Execution Log, verify Step 1 (DataRaptor Extract) pulls Account details\n6. Verify Step 2 (HTTP Action) calls external Experian credit scoring REST API\n7. Verify Step 3 (DataRaptor Transform) blends external credit score with CRM history\n8. Verify Output JSON contains calculated CreditLimit: $75,000 and Status: \"Approved\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.770Z"
+}

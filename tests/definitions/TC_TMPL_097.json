@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_097",
+  "ticketNumber": "OS-ED-102",
+  "testName": "EDA: Academic Degree Audit & Graduation Requirement Evaluation",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "hed__Program_Plan__c",
+  "steps": "1. Open Student Contact record \"Michael Zhang\"\n2. Navigate to Academic Program related list\n3. Open Program Plan \"B.S. in Computer Science - Class of 2026\"\n4. Click \"Run Degree Audit\" action button\n5. Verify audit engine calculates Total Earned Credits (112 / 120 required)\n6. Verify Major Required Courses evaluated to 100% complete\n7. Verify audit flags 1 missing requirement: \"Upper Division Humanities Elective (3 Credits Required)\"\n8. Verify Graduation Status remains \"Pending Requirements",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.778Z"
+}

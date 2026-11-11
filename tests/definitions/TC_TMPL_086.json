@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_086",
+  "ticketNumber": "E2E-105",
+  "testName": "Autonomous Agentforce Triage Escalating to Human Support Swarm",
+  "project": "End-to-End",
+  "objectName": "Case",
+  "steps": "1. Customer engages with Agentforce web chat reporting severe data synchronization loss\n2. Agentforce executes diagnosis flow and detects sentiment score \"Extremely Frustrated\"\n3. Agentforce responds: \"I understand the urgency. I am connecting you immediately with our Tier 3 Database Engineering team.\"\n4. Agentforce creates Case record with priority \"Critical\" and populates Full Conversation Transcript\n5. Case routes via Omni-Channel to active Senior Engineer with audible chime\n6. Senior Engineer accepts work item and opens instant Slack Swarm channel with DevOps\n7. Engineer provides hotfix to customer in live chat\n8. Case marks \"Closed\" with Agentforce deflection telemetry logging human handoff metric",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.771Z"
+}

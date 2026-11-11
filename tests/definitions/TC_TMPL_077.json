@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_077",
+  "ticketNumber": "INTG-105",
+  "testName": "Outbound Message Delivery & SOAP Notification Queue Failure Monitoring",
+  "project": "Integrations & Data Cloud",
+  "objectName": "OutboundMessage",
+  "steps": "1. Open Opportunities tab and advance Stage to \"Closed Won\"\n2. Verify Workflow / Flow Outbound Message action triggers\n3. Open Setup > Monitoring > Outbound Messages\n4. Verify Outbound Message queue shows message addressed to \"https://erp.example.com/soap/orders\"\n5. Verify external endpoint returns standard XML `<Ack>true</Ack>`\n6. Verify message is successfully flushed from queue without retry failure attempts\n7. Verify zero messages queued in \"Failed Deliveries\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.769Z"
+}

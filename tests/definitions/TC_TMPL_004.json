@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_004",
+  "ticketNumber": "SALES-104",
+  "testName": "Account Duplicate Matching Rules & Alert Detection",
+  "project": "Sales Cloud",
+  "objectName": "Account",
+  "steps": "1. Open Accounts tab\n2. Click on New button\n3. Enter \"Global Media Solutions\" in Account Name\n4. Click on Save button\n5. Verify duplicate warning alert appears with text \"Similar Records Exist\"\n6. Verify duplicate card lists existing matching Account",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.743Z"
+}

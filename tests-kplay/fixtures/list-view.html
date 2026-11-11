@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Accounts | Salesforce</title>
+<style>
+  /* SLDS-style checkbox: the real input is visually hidden behind a styled label */
+  .slds-checkbox input { position: absolute; width: 1px; height: 1px; margin: -1px; clip: rect(0 0 0 0); overflow: hidden; }
+  .slds-checkbox_faux { display: inline-block; width: 14px; height: 14px; border: 1px solid #999; }
+</style></head>
+<body>
+<!-- Simplified Lightning object home: list view picker + data grid with row checkboxes -->
+<div class="slds-page-header">
+  <h1 class="slds-page-header__title"><span class="triggerLinkText" id="viewName">Recently Viewed</span></h1>
+  <button title="Select a List View: Accounts" onclick="document.getElementById('picker').style.display='block'">▼</button>
+  <div id="picker" class="slds-dropdown" style="display:none">
+    <input type="search" placeholder="Search lists..." oninput="filterViews(this.value)">
+    <ul id="views"></ul>
+  </div>
+</div>
+<table role="grid">
+  <thead><tr><th><span class="slds-checkbox"><input type="checkbox" id="all" onchange="toggleAll(this.checked)"><label for="all" class="slds-checkbox_faux"></label></span></th><th>Account Name</th><th>Type</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<script>
+  const VIEWS = {
+    'Recently Viewed': ['Acme Corp', 'Globex', 'Initech'],
+    'All Accounts': ['Acme Corp', 'Globex', 'Initech', 'Umbrella', 'Hooli'],
+    'My Accounts': ['Globex']
+  };
+  function render(view) {
+    document.getElementById('viewName').textContent = view;
+    document.getElementById('rows').innerHTML = VIEWS[view].map((n, i) =>
+      `<tr><td><span class="slds-checkbox"><input type="checkbox" id="r${i}"><label for="r${i}" class="slds-checkbox_faux"></label></span></td><th><a href="#">${n}</a></th><td>Customer</td></tr>`).join('');
+    document.getElementById('all').checked = false;
+  }
+  function filterViews(q) {
+    document.getElementById('views').innerHTML = Object.keys(VIEWS)
+      .filter((v) => v.toLowerCase().includes(q.toLowerCase()))
+      .map((v) => `<li><a role="option" href="#" onclick="pick('${v}');return false">${v}</a></li>`).join('');
+  }
+  function pick(v) { document.getElementById('picker').style.display = 'none'; render(v); }
+  function toggleAll(c) { document.querySelectorAll('#rows input').forEach((i) => (i.checked = c)); }
+  filterViews('');
+  render('Recently Viewed');
+</script>
+</body></html>

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_075",
+  "ticketNumber": "INTG-103",
+  "testName": "Change Data Capture (CDC) Event Publishing & CometD/gRPC Replay ID Check",
+  "project": "Integrations & Data Cloud",
+  "objectName": "ChangeDataCapture",
+  "steps": "1. Subscribe external test listener client to CDC channel \"/data/AccountChangeEvent\"\n2. In Salesforce, open Account record and update Phone to \"+1 555-888-0022\" and Industry to \"Finance\"\n3. Click on Save button\n4. In listener client, verify incoming CDC event payload is received\n5. Verify header 'changeType' equals \"UPDATE\"\n6. Verify payload contains only modified fields: 'Phone' and 'Industry' (delta payload)\n7. Verify sequential 'replayId' is present for reliable disaster recovery replay",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.769Z"
+}

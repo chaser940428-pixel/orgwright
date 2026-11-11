@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_029",
+  "ticketNumber": "KN-103",
+  "testName": "Data Category User Visibility & Channel Security Boundary",
+  "project": "Knowledge & Service",
+  "objectName": "Knowledge__kav",
+  "steps": "1. Log in as Customer Support Agent profile lacking \"Executive HR\" data category visibility\n2. Open Knowledge tab and search for \"Executive Compensation Guidelines\"\n3. Verify zero results are returned\n4. Log in as HR Administrator persona\n5. Search for the same article\n6. Verify the article appears and can be viewed",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.753Z"
+}

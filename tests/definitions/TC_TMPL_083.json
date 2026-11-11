@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_083",
+  "ticketNumber": "E2E-102",
+  "testName": "Customer Onboarding to Support Case Resolution Lifecycle",
+  "project": "End-to-End",
+  "objectName": "Case",
+  "steps": "1. Open Cases tab\n2. Click on New button\n3. Select Account \"HyperScale Data\" and Contact \"Jordan Lee\"\n4. Select Priority \"Medium\" and enter \"Initial Sandbox Configuration Assistance\" in Subject\n5. Click on Save button\n6. Click on \"Log a Call\" in Activity feed and enter \"Walked customer through SSO configuration\"\n7. Click on Save in activity feed\n8. Click on \"Close Case\" button and set Status to \"Closed\"\n9. Verify Case is closed and related activity log is preserved on Contact record",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.770Z"
+}

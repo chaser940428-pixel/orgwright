@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_057",
+  "ticketNumber": "RPT-104",
+  "testName": "CRM Analytics (Tableau CRM) Data Recipe Run & Lens Dataset Validation",
+  "project": "Reports & Analytics",
+  "objectName": "AnalyticsDataset",
+  "steps": "1. Open Analytics Studio\n2. Navigate to Data Manager > Recipes\n3. Open Recipe \"Pipeline_Cleanse_And_Transform\"\n4. Click \"Run Recipe\" button\n5. Monitor Job Monitor tab until Recipe status reaches \"Success\"\n6. Navigate to Datasets tab and open generated dataset \"Consolidated_Pipeline_DS\"\n7. In Analytics Lens builder, aggregate Measure by \"Sum of Amount\" grouped by \"Account Industry\"\n8. Verify chart renders top 5 industries with accurate monetary values matching Core CRM records",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.763Z"
+}

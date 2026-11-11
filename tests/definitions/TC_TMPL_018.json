@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_018",
+  "ticketNumber": "SRV-103",
+  "testName": "Agent Presence Status Switch Halts Omni-Channel Inbound Routing",
+  "project": "Service Cloud",
+  "objectName": "Case",
+  "steps": "1. Open Omni-Channel console widget\n2. Change status to \"Busy / In Training\"\n3. Trigger new support Case assigned to agent's queue\n4. Verify work item is NOT routed to this agent and remains in queue\n5. Verify supervisor console displays agent status as \"Busy / In Training\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.749Z"
+}

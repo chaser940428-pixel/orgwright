@@ -1,0 +1,11 @@
+{
+  "id": "TC_GEN_01",
+  "ticketNumber": "SALES-101",
+  "testName": "Create New Account and Verify Required Fields",
+  "project": "Enterprise Sales Cloud",
+  "objectName": "Account",
+  "steps": "1. Open Account list\n2. Click button \"New\"\n3. Set field \"Account Name\" to \"Acme Healthcare Systems\"\n4. Select picklist \"Type\" with value \"Customer - Direct\"\n5. Click Save in modal\n6. Verify toast \"Account was created\"",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-04T10:44:22.670Z",
+  "specCode": ""
+}

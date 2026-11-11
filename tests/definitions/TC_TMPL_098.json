@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_098",
+  "ticketNumber": "OS-UT-101",
+  "testName": "UTAM Recipes: Modal Dialog Record Creation & Async Toast Interception",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "Account",
+  "steps": "1. In Lightning Service Console, click \"Quick Action: Create Partner Account\"\n2. Verify custom LWC modal dialog renders with focus trap inside modal container\n3. Enter Account Name \"Quantum Dynamics Labs\"\n4. Enter Tier \"Strategic Tier 1\"\n5. Click on Save button inside modal\n6. Verify Save button transitions to disabled state with loading spinner\n7. Intercept asynchronous Lightning notification toast: \"Account Quantum Dynamics Labs was created\"\n8. Verify modal container closes and focus restores to parent console window",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.780Z"
+}

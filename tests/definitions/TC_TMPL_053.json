@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_053",
+  "ticketNumber": "MKT-104",
+  "testName": "Engagement Studio Automated Drip Journey Trigger & Action Tracking",
+  "project": "Marketing Cloud",
+  "objectName": "CampaignMember",
+  "steps": "1. Open Account Engagement > Engagement Studio\n2. Open active program \"New Lead Onboarding Drip\"\n3. Add test prospect to recipient list \"Onboarding Prospects\"\n4. Verify Step 1 triggers and sends \"Welcome Email\"\n5. Simulate Email Open event on test email client\n6. Verify Engagement Studio decision node \"Email Opened?\" evaluates to YES within wait window\n7. Verify Step 2 branch executes: Send \"Deep Dive Case Study\"\n8. Verify CRM Task \"Follow up with engaged prospect\" is automatically assigned to Sales Owner",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.762Z"
+}

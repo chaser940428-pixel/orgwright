@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_070",
+  "ticketNumber": "FLOW-103",
+  "testName": "Validation Rule on Past Close Date Enforcement",
+  "project": "Automations & Flows",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Click on New button\n3. Enter \"Invalid Date Test Opportunity\" in Opportunity Name\n4. Select Close Date in the past (e.g. yesterday)\n5. Select Stage \"Prospecting\"\n6. Click on Save button\n7. Verify validation rule error appears: \"Close Date cannot be in the past for active Opportunities\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.767Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_049",
+  "ticketNumber": "COMM-104",
+  "testName": "Order Summary Creation, Split Shipment & Order Payment Summary Check",
+  "project": "Commerce Cloud",
+  "objectName": "OrderSummary",
+  "steps": "1. Open Salesforce Order Management app\n2. Open Order Summaries tab and select newly placed order\n3. Verify Status equals \"Created\" and Total Amount matches checkout total\n4. Open Order Payment Summaries related list\n5. Verify Payment Summary reflects \"Authorized\" with balance due matching PO terms\n6. In Order Product Summaries, select Item 2 and click \"Split Line Item\" for split shipment\n7. Assign Item 1 to \"East Coast Distribution Center\" and Item 2 to \"Central Hub\"\n8. Click \"Create Fulfillment Orders\"\n9. Verify two Fulfillment Order records are spawned with appropriate tracking references",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.760Z"
+}

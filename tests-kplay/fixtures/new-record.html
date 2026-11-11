@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>New Encounter | Salesforce</title></head>
+<body>
+<!-- Record type chooser followed by an edit form with validation errors -->
+<section role="dialog" id="rt">
+  <h2>New Encounter</h2>
+  <label><input type="radio" name="rt" value="clinic"> Clinic Visit</label>
+  <label><input type="radio" name="rt" value="tele"> Telehealth</label>
+  <button onclick="if(document.querySelector('input[name=rt]:checked')){document.getElementById('rt').remove();document.getElementById('form').style.display='block'}">Next</button>
+</section>
+<section id="form" style="display:none">
+  <div class="slds-form-element slds-has-error">
+    <label class="slds-form-element__label"><abbr>*</abbr>Visit Date</label>
+    <input type="text">
+    <div class="slds-form-element__help">Complete this field.</div>
+  </div>
+  <div class="slds-form-element">
+    <label class="slds-form-element__label">Chief Complaint</label>
+    <input type="text">
+  </div>
+  <div class="slds-form-element">
+    <label class="slds-form-element__label">Encounter Number</label>
+    <input type="text" readonly value="Auto">
+  </div>
+  <div class="pageLevelErrors">We hit a snag. Review the following fields: Visit Date</div>
+</section>
+</body></html>

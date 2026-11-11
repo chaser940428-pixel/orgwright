@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_072",
+  "ticketNumber": "FLOW-105",
+  "testName": "Async Apex Batch Job Execution & Error Queue Monitoring",
+  "project": "Automations & Flows",
+  "objectName": "AsyncApexJob",
+  "steps": "1. Open Setup > Apex Jobs\n2. Locate most recent execution of \"NightlyAccountRollupBatch\"\n3. Verify Status equals \"Completed\"\n4. Verify \"Total Batches\" matches processed batches with \"Failures\" equal to 0\n5. Open Error Log custom object and verify zero unhandled batch exception records were logged for today's date",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.768Z"
+}

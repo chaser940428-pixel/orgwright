@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_015",
+  "ticketNumber": "CPQ-106",
+  "testName": "Quote-to-Order (Q2O) Generation and Line Splitting",
+  "project": "CPQ & Billing",
+  "objectName": "Quote",
+  "steps": "1. Open Quotes tab\n2. Open approved Primary Quote\n3. Check the \"Ordered\" checkbox on the Quote header\n4. Click on Save button\n5. Navigate to Orders related list on parent Account\n6. Verify new Order record is generated in Draft status\n7. Open Order and verify Order Products match Quote Line items with exact pricing and quantities",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.748Z"
+}

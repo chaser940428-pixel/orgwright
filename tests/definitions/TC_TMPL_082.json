@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_082",
+  "ticketNumber": "E2E-101",
+  "testName": "Complete Lead-to-Cash End-to-End Customer Lifecycle",
+  "project": "End-to-End",
+  "objectName": "Account",
+  "steps": "1. Open Leads tab\n2. Click on New button and create Lead \"Jordan Lee\" at \"HyperScale Data\"\n3. Convert Lead to Account \"HyperScale Data\", Contact \"Jordan Lee\", and Opportunity \"HyperScale - Platform Launch\"\n4. Open newly created Opportunity\n5. Advance Stage to \"Proposal/Price Quote\"\n6. Enter \"200000\" in Amount field\n7. Move Stage to \"Closed Won\" and click Save\n8. Navigate to parent Account \"HyperScale Data\"\n9. Verify roll-up or related lists reflect won Opportunity and active Contact",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.770Z"
+}

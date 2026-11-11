@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_019",
+  "ticketNumber": "SRV-104",
+  "testName": "Entitlement & Milestone SLA Countdown Timer Tracking",
+  "project": "Service Cloud",
+  "objectName": "Case",
+  "steps": "1. Open Cases tab\n2. Create Case associated with Account having \"Gold SLA Entitlement\"\n3. Open created Case in Service Console\n4. Locate Milestone SLA component on record page\n5. Verify \"First Response Time\" milestone is active with live countdown timer (e.g. 1 hour remaining)\n6. Send outbound email response to customer contact\n7. Verify \"First Response Time\" milestone marks as \"Completed\" with green checkmark",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.749Z"
+}

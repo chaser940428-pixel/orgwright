@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_048",
+  "ticketNumber": "COMM-103",
+  "testName": "Cart Management, Coupon Code Application & Multi-Step Checkout Flow",
+  "project": "Commerce Cloud",
+  "objectName": "Cart",
+  "steps": "1. On Product Detail Page, click \"Add to Cart\" button\n2. Verify mini-cart opens showing 1 item with subtotal\n3. Click on \"View Cart\" button\n4. In Promo Code input, enter \"SUMMER10\" and click Apply\n5. Verify 10% promotional discount is deducted from order subtotal\n6. Click on \"Proceed to Checkout\" button\n7. In Shipping Step, select default saved warehouse address \"Facility A - Warehouse\"\n8. In Payment Step, select Payment Method \"Purchase Order (PO)\" and enter PO Number \"PO-2026-8819\"\n9. Click on \"Place Order\" button\n10. Verify Order Confirmation screen loads with generated Order Summary Number",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.760Z"
+}

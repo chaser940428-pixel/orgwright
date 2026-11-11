@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_073",
+  "ticketNumber": "INTG-101",
+  "testName": "Data Cloud Ingestion Stream & Data Model Object (DMO) Schema Mapping",
+  "project": "Integrations & Data Cloud",
+  "objectName": "DataCloud_DMO",
+  "steps": "1. Open Salesforce Data Cloud app\n2. Navigate to Data Streams tab and open \"Ingest_S3_ECommerce_Orders\"\n3. Verify Stream Status is \"Active\" with Refresh Mode \"Upsert\"\n4. Open Data Mapping canvas\n5. Verify Source DLO field \"Customer_External_Id\" is mapped to Individual DMO \"Id\"\n6. Verify Source DLO field \"Order_Total_Amount\" is mapped to SalesOrder DMO \"GrandTotalAmount\"\n7. Click \"Validate Mappings\" button and confirm zero schema mismatch warnings",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.768Z"
+}

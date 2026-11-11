@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_038",
+  "ticketNumber": "HC-103",
+  "testName": "Clinical Encounter Timeline & Observation Record Verification",
+  "project": "Health Cloud",
+  "objectName": "Encounter__c",
+  "steps": "1. Open Patient record \"Evelyn Reed\"\n2. Open Clinical Encounters related list and click New\n3. Select Encounter Class \"Ambulatory Outpatient\"\n4. Select Service Provider \"Metro Health Clinic\"\n5. Enter Encounter Date as Today\n6. Click on Save button\n7. In child Observations related list, add Observation \"Systolic Blood Pressure: 128 mmHg\"\n8. Add Observation \"Diastolic Blood Pressure: 82 mmHg\"\n9. Open Patient Timeline component\n10. Verify today's Ambulatory Encounter appears on chronological timeline with vital sign badges",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.756Z"
+}

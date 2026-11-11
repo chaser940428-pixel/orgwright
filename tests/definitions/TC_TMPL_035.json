@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_035",
+  "ticketNumber": "FSC-105",
+  "testName": "Interaction Summary & Confidential Note Logging for Wealth Advisor",
+  "project": "Financial Services (FSC)",
+  "objectName": "FinServ__InteractionSummary__c",
+  "steps": "1. Open Household record \"The Sterling Family Household\"\n2. Click on \"Log Interaction Summary\" action button\n3. Enter Title \"Annual Portfolio Review & Estate Planning\"\n4. Select Purpose \"Retirement Scoping\"\n5. Enter meeting notes in Confidential Notes rich text field\n6. Check \"Confidential\" checkbox\n7. Click on Save button\n8. Verify Interaction Summary is linked to Household and attendee Person Accounts\n9. Log in as Junior Operations user and verify Confidential Notes are masked/hidden per FSC sharing policies",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.755Z"
+}

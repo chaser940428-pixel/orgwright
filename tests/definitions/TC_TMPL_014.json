@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_014",
+  "ticketNumber": "CPQ-105",
+  "testName": "Mid-Term Contract Amendment & End-Date Co-Termination",
+  "project": "CPQ & Billing",
+  "objectName": "Contract",
+  "steps": "1. Open Contracts tab\n2. Open active Contract record\n3. Click on \"Amend\" button in Lightning action bar\n4. Verify Amendment Opportunity and Amendment Quote are spawned\n5. In Quote Line Editor, add 10 additional \"User Licenses\"\n6. Verify the End Date of newly added licenses matches original Contract End Date (co-terminated)\n7. Verify pro-rated pricing is calculated for remaining contract months",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.747Z"
+}

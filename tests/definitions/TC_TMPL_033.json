@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_033",
+  "ticketNumber": "FSC-103",
+  "testName": "Client Life Events & Financial Goals Progress Tracking",
+  "project": "Financial Services (FSC)",
+  "objectName": "FinServ__FinancialGoal__c",
+  "steps": "1. Open Person Account \"Claire Sterling\"\n2. Locate Life Events component on record page\n3. Click \"Add Event\" on \"Retirement\" icon\n4. Enter Event Date as 5 years from today and click Save\n5. Scroll to Financial Goals related list and click New\n6. Enter Goal Name \"Early Retirement Nest Egg\"\n7. Enter Target Amount \"$1,200,000\" and Target Date\n8. Enter Actual Amount \"$850,000\"\n9. Click on Save button\n10. Verify Financial Goal progress bar renders 70.8% completed on client 360 view",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.755Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_061",
+  "ticketNumber": "EXP-104",
+  "testName": "Partner Portal Lead Distribution & Acceptance Rejection Timeout",
+  "project": "Experience Cloud",
+  "objectName": "Lead",
+  "steps": "1. In internal Salesforce, create Lead \"NexGen Robotics\" with Lead Source \"Partner Channel\"\n2. Assign Lead to Partner Queue \"Gold Partners - EMEA\"\n3. Log in to Experience Cloud as Channel Partner user\n4. Navigate to \"Available Leads\" list view\n5. Open Lead \"NexGen Robotics\" and click \"Accept Lead\" button\n6. Verify Lead Owner transitions from Queue to the active Partner User\n7. Verify partner acceptance timestamp is recorded\n8. Verify SLA countdown timer halts successfully",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.764Z"
+}

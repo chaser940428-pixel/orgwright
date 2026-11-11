@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_054",
+  "ticketNumber": "RPT-101",
+  "testName": "Create Custom Matrix & Summary Report with Cross-Filters and Formulas",
+  "project": "Reports & Analytics",
+  "objectName": "Report",
+  "steps": "1. Open Reports tab\n2. Click on \"New Report\" button\n3. Select Report Type \"Opportunities with Products\"\n4. Click on Start Report button\n5. In Report Builder, add Row Grouping by \"Stage\" and Column Grouping by \"Fiscal Quarter\"\n6. In Filters pane, set Close Date equals \"Current and Previous FQ\"\n7. Click \"Add Cross Filter\" -> Opportunities with Products where Product Family equals \"Software\"\n8. Add Summary Formula \"Win Rate %\" = WON:SUM / CLOSED:SUM\n9. Click \"Save & Run\" button\n10. Enter Report Name \"Executive Win Rate by Quarter\" and select Public Reports folder\n11. Verify report table displays calculated percentages and totals correctly",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.762Z"
+}

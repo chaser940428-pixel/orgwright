@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_013",
+  "ticketNumber": "CPQ-104",
+  "testName": "Contract Generation & Subscription Creation from Closed-Won Deal",
+  "project": "CPQ & Billing",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Open Opportunity with subscription quote lines\n3. Check the \"Contracted\" checkbox\n4. Click on Save button\n5. Wait for asynchronous CPQ batch contract generation\n6. Open Contracts related list\n7. Verify new Contract record is created with Start Date and End Date matching subscription terms\n8. Open child Subscriptions related list to verify active license lines",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.747Z"
+}

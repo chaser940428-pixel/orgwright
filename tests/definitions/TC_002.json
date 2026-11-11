@@ -1,0 +1,12 @@
+{
+  "id": "TC_002",
+  "ticketNumber": "CRM-102",
+  "testName": "Create and Qualify Lead for Enterprise Sales",
+  "project": "Sales Cloud",
+  "objectName": "Lead",
+  "steps": "1. Open Leads tab\n2. Click on New button\n3. Enter \"Sarah\" in First Name\n4. Enter \"Connor\" in Last Name\n5. Enter \"Cyberdyne Systems\" in Company\n6. Select \"Working - Contacted\" from Lead Status\n7. Click on Save button\n8. Verify field \"Lead Status\" equals \"Working - Contacted\"",
+  "lastStatus": "passed",
+  "lastDurationMs": 12800,
+  "updatedAt": "2026-11-07T12:00:00.000Z",
+  "specCode": ""
+}

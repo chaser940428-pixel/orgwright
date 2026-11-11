@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_078",
+  "ticketNumber": "OMNI-101",
+  "testName": "OmniScript Guided Multi-Step Customer Intake & Address Change",
+  "project": "Omnistudio & Vlocity",
+  "objectName": "OmniScript",
+  "steps": "1. Launch OmniScript \"Customer_ChangeOfAddress_English\"\n2. In Step 1 (Identity Verification), enter Account Number \"ACC-10492\" and Billing Postal Code\n3. Click \"Next\" button\n4. In Step 2 (New Address), enter New Street \"450 Market St\" and select State \"CA\"\n5. Verify real-time Google Maps / Postal validation normalizes address to \"450 Market St, San Francisco, CA 94105\"\n6. In Step 3 (Review & Confirm), review summary card\n7. Click \"Submit\" button\n8. Verify success step displays confirmation badge\n9. Open target Account in CRM and verify Billing Address updated cleanly via DataRaptor Load",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.769Z"
+}

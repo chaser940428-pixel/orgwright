@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_028",
+  "ticketNumber": "KN-102",
+  "testName": "Case Deflection via Knowledge Search & One-Click Attachment",
+  "project": "Knowledge & Service",
+  "objectName": "Case",
+  "steps": "1. Open recent Case record in Service Console\n2. In Knowledge component on right sidebar, enter \"SSO Login\" in search box\n3. Verify matching published articles appear in search results\n4. Hover over target article and click dropdown arrow\n5. Click \"Attach Article to Case\"\n6. Verify article is linked in Case Articles related list\n7. Click \"Insert Article into Email\" and verify article text pastes into outbound customer email composer",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.752Z"
+}

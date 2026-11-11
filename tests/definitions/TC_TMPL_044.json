@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_044",
+  "ticketNumber": "AGENT-104",
+  "testName": "Einstein Prompt Builder Template Execution & Response Grounding",
+  "project": "Agentforce & AI",
+  "objectName": "PromptTemplate",
+  "steps": "1. Open Opportunities tab and open recent Opportunity record\n2. Locate Einstein Copilot / Prompt action \"Generate Executive Deal Summary\"\n3. Click \"Generate Summary\" button\n4. In Prompt preview, verify merge fields: {!$Record.Name}, {!$Record.Amount}, and {!$Record.CloseDate} are correctly populated\n5. Verify generated response contains structured bullet points: Executive Summary, Key Stakeholders, and Next Steps\n6. Verify deal Amount ($150,000) matches CRM value exactly\n7. Click \"Insert into Field\" to commit generated text into Opportunity Description",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.758Z"
+}

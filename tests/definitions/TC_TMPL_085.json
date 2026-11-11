@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_085",
+  "ticketNumber": "E2E-104",
+  "testName": "Omni-Channel Field Service Work Order to Invoicing Journey",
+  "project": "End-to-End",
+  "objectName": "WorkOrder",
+  "steps": "1. Customer portal user submits support ticket \"Turbine Bearing Vibration High\"\n2. Support Agent reviews Case and clicks \"Generate Work Order\"\n3. Work Order is dispatched to nearest field technician via Gantt\n4. Mobile technician completes onsite repair, logs 3 hours labor and replacement bearings\n5. Customer signs off on mobile tablet\n6. Work Order status is set to \"Closed - Completed\"\n7. Downstream automated flow generates ERP billing Invoice for labor and materials\n8. Support Case automatically marks \"Resolved\" and customer satisfaction survey is emailed",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.770Z"
+}

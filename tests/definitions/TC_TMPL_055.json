@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_055",
+  "ticketNumber": "RPT-102",
+  "testName": "Lightning Dashboard Creation with Dynamic Metric Gauges & Global Filters",
+  "project": "Reports & Analytics",
+  "objectName": "Dashboard",
+  "steps": "1. Open Dashboards tab\n2. Click on \"New Dashboard\" button\n3. Enter Dashboard Name \"Q3 Sales Performance Cockpit\" and save\n4. Click \"+ Component\" button and select report \"Executive Win Rate by Quarter\"\n5. Select Display As \"Gauge Chart\" with Breakpoints: Red (0-40%), Yellow (40-70%), Green (70-100%)\n6. Click Add Component\n7. Click \"+ Filter\" button to add Global Filter by \"Opportunity Owner / Territory\"\n8. Click \"Save\" and click \"Done\" to view live dashboard\n9. Select Global Filter \"EMEA Territory\"\n10. Verify gauge and bar chart recalculate dynamically based on selected filter without page reload",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.763Z"
+}

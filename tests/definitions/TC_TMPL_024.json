@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_024",
+  "ticketNumber": "SFS-103",
+  "testName": "Service Resource Operating Hours, Shifts & Territory Membership",
+  "project": "Field Service (SFS)",
+  "objectName": "ServiceResource",
+  "steps": "1. Open Service Resources tab\n2. Open record \"Carlos Rivera\"\n3. Open Service Territory Memberships related list\n4. Verify Primary Territory is \"Midwest Metro\" with Operating Hours \"Standard 8AM-5PM CST\"\n5. Attempt to schedule a Service Appointment at 7:00 PM (outside operating hours)\n6. Verify scheduling engine flags rule violation: \"Violates Resource Operating Hours\"\n7. Reschedule to 10:00 AM within normal shift hours\n8. Verify validation passes with zero rule violations",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.750Z"
+}

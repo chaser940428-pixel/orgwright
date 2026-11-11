@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_056",
+  "ticketNumber": "RPT-103",
+  "testName": "Automated Report Subscription with Conditional Threshold Alert",
+  "project": "Reports & Analytics",
+  "objectName": "Report",
+  "steps": "1. Open Report \"Weekly High-Priority Cases\"\n2. Click on dropdown menu next to Edit button and select \"Subscribe\"\n3. Select Frequency \"Weekly on Monday at 08:00 AM\"\n4. Check option \"Run report with these conditions to send email\"\n5. Set Condition: \"Record Count greater than 10\"\n6. Add Recipient User \"Support Director\"\n7. Click on Save button\n8. Trigger test data condition where case count exceeds 10\n9. Verify subscription status shows active with next scheduled run time",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.763Z"
+}

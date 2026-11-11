@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_005",
+  "ticketNumber": "SALES-105",
+  "testName": "Advance Opportunity Stages via Lightning Sales Path",
+  "project": "Sales Cloud",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Click on New button\n3. Enter \"Global Media - Expansion Q3\" in Opportunity Name\n4. Select Stage \"Prospecting\"\n5. Select Close Date as end of next month\n6. Enter \"150000\" in Amount field\n7. Click on Save button\n8. Click on Stage \"Qualification\" in Lightning Sales Path\n9. Click on \"Mark as Current Stage\" button\n10. Verify Stage updates to \"Qualification\"\n11. Click on Stage \"Proposal/Price Quote\" in Sales Path\n12. Click on \"Mark as Current Stage\" button\n13. Verify Stage updates to \"Proposal/Price Quote\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.743Z"
+}

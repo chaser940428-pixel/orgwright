@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_092",
+  "ticketNumber": "OS-ES-101",
+  "testName": "Easy Spaces: Venue Space Reservation & Double-Booking Lockout",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "Reservation__c",
+  "steps": "1. Open Easy Spaces App from App Launcher\n2. Navigate to \"Space Explorer\" tab\n3. Select Market \"San Francisco Financial District\"\n4. Select Space \"The Panorama Loft\" (Max Capacity: 200)\n5. Click \"Book Reservation\" button\n6. Enter Reservation Dates: Next Friday 09:00 AM to 05:00 PM\n7. Enter Expected Attendees \"150\"\n8. Click \"Confirm Reservation\" button\n9. In a separate browser tab, attempt to book \"The Panorama Loft\" for the same Friday time slot\n10. Verify validation error banner: \"Selected space is already reserved during this time period",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.775Z"
+}

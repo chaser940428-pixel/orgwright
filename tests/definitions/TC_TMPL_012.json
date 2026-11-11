@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_012",
+  "ticketNumber": "CPQ-103",
+  "testName": "Standard vs Regional Custom Pricebook Dynamic Selection",
+  "project": "CPQ & Billing",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Open record \"Recent\"\n3. Click on \"Choose Price Book\" in Products related list\n4. Select \"EMEA Commercial Pricebook\" from dropdown\n5. Click on Save\n6. Click on \"Add Products\"\n7. Select product \"Cloud Storage 1TB\"\n8. Verify listed List Price reflects EUR €85 rather than USD $100 standard pricebook entry",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.746Z"
+}

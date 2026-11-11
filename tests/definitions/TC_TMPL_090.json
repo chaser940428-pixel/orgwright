@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_090",
+  "ticketNumber": "OS-EB-101",
+  "testName": "E-Bikes: Custom Electric Bike Assembly & Real-time MSRP Calculation",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "Product__c",
+  "steps": "1. Open E-Bikes App from App Launcher\n2. Navigate to \"Bike Customizer\" tab\n3. Select Base Model \"Aero Urban Cruiser\" (Base MSRP: $1,899.00)\n4. In Motor selection, choose \"750W Performance Hub (+ $250.00)\"\n5. In Battery selection, choose \"625Wh Extended Range (+ $300.00)\"\n6. In Shifter selection, choose \"Shimano Deore 10-Speed (+ $120.00)\"\n7. Verify live Total MSRP updates dynamically to \"$2,569.00\"\n8. Click \"Save Configuration\" button\n9. Verify custom product configuration record is generated with serialized assembly code",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.772Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_003",
+  "ticketNumber": "SALES-103",
+  "testName": "Create Business Account with Billing Address & Industry",
+  "project": "Sales Cloud",
+  "objectName": "Account",
+  "steps": "1. Log in to Salesforce\n2. Navigate to Account tab\n3. Click on New button\n4. Enter \"Global Media Solutions\" in Account Name\n5. Select \"Customer - Direct\" from Type picklist\n6. Select \"Media\" from Industry picklist\n7. Enter \"500 5th Ave, New York\" in Billing Address\n8. Click on Save button\n9. Verify toast \"Account was created\"\n10. Verify field \"Account Name\" equals \"Global Media Solutions\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.743Z"
+}

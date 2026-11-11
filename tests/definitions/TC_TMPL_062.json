@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_062",
+  "ticketNumber": "EXP-105",
+  "testName": "Guest User Secure Access Enforcement & Record Sharing Isolation",
+  "project": "Experience Cloud",
+  "objectName": "Account",
+  "steps": "1. Open unauthenticated public browser session to Experience Cloud site\n2. Access public Knowledge search page\n3. Verify public knowledge articles are visible\n4. In browser address bar, attempt direct URL navigation to internal record URL (/s/detail/001xxxxxxxxxxxx)\n5. Verify guest user is redirected to Login page or 404 Access Denied\n6. Attempt SOQL injection via public API endpoint\n7. Verify Guest User Sharing Rule strictly isolates private customer records",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.764Z"
+}

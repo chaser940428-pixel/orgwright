@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_032",
+  "ticketNumber": "FSC-102",
+  "testName": "Financial Account Creation (Wealth / Investment) & Household Rollup",
+  "project": "Financial Services (FSC)",
+  "objectName": "FinServ__FinancialAccount__c",
+  "steps": "1. Open Clients tab and select \"Robert Sterling\"\n2. Scroll to Financial Accounts related list and click New\n3. Select Record Type \"Investment Account\"\n4. Enter Financial Account Name \"Sterling Growth Portfolio\"\n5. Enter Account Number \"INV-994821\"\n6. Enter Balance \"$450,000\"\n7. Select Ownership \"Individual\" and Primary Owner \"Robert Sterling\"\n8. Click on Save button\n9. Open parent Household \"The Sterling Family Household\"\n10. Verify Household Total Investments rollup field reflects $450,000 accurately",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.754Z"
+}

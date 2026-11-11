@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_079",
+  "ticketNumber": "OMNI-102",
+  "testName": "FlexCard Contextual 360 Information Display & Action Triggering",
+  "project": "Omnistudio & Vlocity",
+  "objectName": "FlexCard",
+  "steps": "1. Open Account record page in Service Console\n2. Locate embedded FlexCard \"Customer_Plan_Overview\"\n3. Verify FlexCard displays live data: Current Plan Name, Monthly Premium, Active Add-ons\n4. Click on action button \"Upgrade Plan\" on FlexCard\n5. Verify action opens modal flyout with eligible upgrade options\n6. Click \"Cancel\" and verify FlexCard state returns to clean initial view without visual artifacts",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.769Z"
+}

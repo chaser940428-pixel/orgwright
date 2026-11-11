@@ -1,0 +1,18 @@
+{
+  "name": "@kplay/introspector",
+  "version": "1.0.0",
+  "description": "Salesforce SObject, Flexipage, and Metadata Introspector with local caching and release diffing for KPlay",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@kplay/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.10.0"
+  }
+}

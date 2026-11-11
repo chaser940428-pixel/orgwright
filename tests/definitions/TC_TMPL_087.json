@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_087",
+  "ticketNumber": "OS-DH-101",
+  "testName": "DreamHouse: Property Listing Filtering by Price Slider & Bedrooms",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "Property__c",
+  "steps": "1. Open DreamHouse App from App Launcher\n2. Navigate to \"Properties\" Explorer tab\n3. Locate \"Property Filters\" sidebar component\n4. Drag Price Range slider minimum to \"$600,000\" and maximum to \"$1,200,000\"\n5. Select Bedrooms picklist \"3+\"\n6. Verify property card grid dynamically refreshes without page reload\n7. Verify all displayed property cards have Price between $600k and $1.2M and at least 3 bedrooms\n8. Click on first property card \"Victorian Modern Retreat\" to open details",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.771Z"
+}

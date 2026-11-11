@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_011",
+  "ticketNumber": "CPQ-102",
+  "testName": "Tiered Volume Discount Schedules Calculation Check",
+  "project": "CPQ & Billing",
+  "objectName": "Quote",
+  "steps": "1. Open Quotes tab\n2. Open recent Draft Quote\n3. Click on \"Edit Lines\" button\n4. In Quote Line Editor, locate Product \"Enterprise License\"\n5. Change Quantity from 5 to 50 units\n6. Click on \"Calculate\" button\n7. Verify Unit Price drops from $100 to $80 reflecting Tier 2 Volume Discount Schedule (20% off)\n8. Verify Net Total recalculates dynamically to $4,000",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.746Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_031",
+  "ticketNumber": "FSC-101",
+  "testName": "Client Household Creation & Actionable Relationship Center (ARC) Mapping",
+  "project": "Financial Services (FSC)",
+  "objectName": "Account",
+  "steps": "1. Open Groups (Household) tab\n2. Click on New button\n3. Enter \"The Sterling Family Household\" in Group Name\n4. Select Record Type \"Household\" and click Save\n5. Navigate to Actionable Relationship Center (ARC) component\n6. Click \"Add Member\" button\n7. Search and select Person Account \"Robert Sterling\" and set Role \"Primary Owner\"\n8. Search and select Person Account \"Claire Sterling\" and set Role \"Spouse\"\n9. Click on Save button\n10. Verify ARC tree renders Household root with both spouses and calculates aggregated wealth rollups",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.754Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_088",
+  "ticketNumber": "OS-DH-102",
+  "testName": "DreamHouse: Schedule Broker Tour & Property Day Assignment",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "Property__c",
+  "steps": "1. Open Property record \"Victorian Modern Retreat\"\n2. Locate \"Schedule Tour\" quick action button in highlights panel\n3. Click on \"Schedule Tour\"\n4. In popup modal, select Target Tour Date as next Saturday 10:00 AM\n5. In Assigned Broker lookup, select \"Caroline Kingsley\"\n6. Enter Prospect Name \"Alexander Wright\" and Email \"a.wright@example.com\"\n7. Click on \"Confirm Tour Booking\" button\n8. Verify success toast \"Tour booked successfully with Caroline Kingsley\"\n9. Verify Tour appointment is logged in Property Activity Timeline",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.771Z"
+}

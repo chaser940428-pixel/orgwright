@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_065",
+  "ticketNumber": "SEC-103",
+  "testName": "Field History Tracking and Audit Trail Verification",
+  "project": "Platform & Security",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Open recent Opportunity record\n3. Click on Edit button\n4. Change Amount from \"100000\" to \"125000\"\n5. Click on Save button\n6. Click on Related tab\n7. Scroll to Opportunity Field History related list\n8. Verify history row displays old value \"100,000\" and new value \"125,000\" with current user name",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.764Z"
+}

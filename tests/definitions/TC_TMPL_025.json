@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_025",
+  "ticketNumber": "SFS-104",
+  "testName": "Field Service Mobile Lifecycle: En Route to Completed with Signature",
+  "project": "Field Service (SFS)",
+  "objectName": "ServiceAppointment",
+  "steps": "1. Log in as Mobile Technician persona\n2. Open scheduled Service Appointment in mobile view\n3. Change Status from \"Dispatched\" to \"En Route\"\n4. Verify travel timestamp is logged\n5. Upon arrival at customer site, change Status to \"In Progress\"\n6. In Products Consumed tab, add 2 units of \"Replacement Valve Part #V-40\"\n7. Click on \"Generate Service Report\" action\n8. Capture Customer Name \"David Miller\" and draw digital signature in signature canvas\n9. Change Status to \"Completed\" and save\n10. Open parent Work Order on desktop and verify Service Report PDF is attached with signature",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.750Z"
+}

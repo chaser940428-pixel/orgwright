@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_041",
+  "ticketNumber": "AGENT-101",
+  "testName": "Agentforce Topic Classification & Intent Recognition Routing",
+  "project": "Agentforce & AI",
+  "objectName": "Agentforce",
+  "steps": "1. Open Agentforce Testing Center / Preview Panel\n2. Initialize chat session with test persona \"Authenticated Customer\"\n3. Enter natural language prompt: \"Where is my recent shipment for order #99481?\"\n4. Verify Agent Event Inspector logs intent classification to Topic \"Order_Management\"\n5. In same session, enter prompt variant: \"I haven't received package 99481 yet, can you check delivery status?\"\n6. Verify Agent maintains topic context and routes to the same underlying Order tracking logic\n7. Enter out-of-domain prompt: \"Who won the World Series in 1998?\"\n8. Verify Agent triggers polite fallback: \"I can only assist with your Salesforce customer account and orders.\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.757Z"
+}

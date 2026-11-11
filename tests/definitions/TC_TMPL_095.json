@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_095",
+  "ticketNumber": "OS-NP-103",
+  "testName": "NPSP: Partial Soft Credit Attribution to Influencing Board Member",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "npsp__Partial_Soft_Credit__c",
+  "steps": "1. Open closed Won Corporate Donation \"$50,000\" from \"Meridian Biotech Corp\"\n2. Scroll to Soft Credits related list and click \"Manage Soft Credits\"\n3. In Soft Credit Contact lookup, search and select Board Member \"Elena Rostova\"\n4. Select Soft Credit Role \"Board Member / Solicitor\"\n5. Set Soft Credit Amount to \"$50,000\" (Full Soft Credit)\n6. Click on Save button\n7. Open Contact record \"Elena Rostova\"\n8. Verify Donor Statistics rollup \"Total Soft Credits\" increments by $50,000 without altering Hard Credit lifetime totals",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.777Z"
+}

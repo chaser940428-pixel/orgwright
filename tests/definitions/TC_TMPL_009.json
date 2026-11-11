@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_009",
+  "ticketNumber": "SALES-109",
+  "testName": "Opportunity Splits & Sales Team Revenue Allocation",
+  "project": "Sales Cloud",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Open recent Opportunity record with Amount $100,000\n3. Scroll to Opportunity Team related list and click \"Add Opportunity Team Members\"\n4. Add Sales Engineer \"Alex Morgan\" with Role \"Technical Specialist\" and Read/Write access\n5. Click on Save\n6. Click on \"Edit Opportunity Splits\" in Opportunity Splits related list\n7. Assign Primary Owner 70% ($70,000) and Sales Engineer 30% ($30,000)\n8. Click on Save button\n9. Verify total split percentage equals exactly 100% and forecasts reflect updated quota attribution",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.745Z"
+}

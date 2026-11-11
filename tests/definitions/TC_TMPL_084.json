@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_084",
+  "ticketNumber": "E2E-103",
+  "testName": "Partner Community Deal Registration to Opportunity Conversion Journey",
+  "project": "End-to-End",
+  "objectName": "Opportunity",
+  "steps": "1. Log in to Partner Community as Channel Partner User\n2. Navigate to \"Deal Registrations\" tab\n3. Click on \"Register New Deal\" button\n4. Enter Prospect Company \"Nordic Dynamics\", Est. Deal Size \"75000\", and Target Close Date\n5. Click on Submit Deal button\n6. Log in as Internal Channel Manager persona\n7. Open received Deal Registration record and click \"Approve and Convert\"\n8. Verify internal Opportunity is generated with Partner Account tagged as Channel Partner",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.770Z"
+}

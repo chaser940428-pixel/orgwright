@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_069",
+  "ticketNumber": "FLOW-102",
+  "testName": "Opportunity Discount Approval Process Submission",
+  "project": "Automations & Flows",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Open recent Opportunity record\n3. Click on Edit button\n4. Enter \"25\" in Discount Percentage field\n5. Click on Save button\n6. Click on \"Submit for Approval\" button in Lightning action bar\n7. Enter \"Requesting 25% annual volume discount\" in Comments\n8. Click on Submit button\n9. Verify toast \"Approval request submitted\"\n10. Verify Approval History related list shows \"Pending Manager Approval\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.766Z"
+}

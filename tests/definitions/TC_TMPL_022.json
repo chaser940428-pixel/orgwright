@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_022",
+  "ticketNumber": "SFS-101",
+  "testName": "Work Order Generation with Skill Requirements & Duration",
+  "project": "Field Service (SFS)",
+  "objectName": "WorkOrder",
+  "steps": "1. Open Work Orders tab\n2. Click on New button\n3. Select Work Type \"Commercial Generator Diagnostic\"\n4. In Account lookup, select \"Acme Industrial Plants\"\n5. Enter Service Street Address \"100 Industrial Parkway, Chicago\"\n6. Select Priority \"High\"\n7. Click on Save button\n8. Open child \"Skill Requirements\" related list\n9. Verify skill \"High Voltage Certified\" is auto-populated with Skill Level >= 4.0 from Work Type definition\n10. Verify related Service Appointment is automatically created with Duration 120 minutes",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.750Z"
+}

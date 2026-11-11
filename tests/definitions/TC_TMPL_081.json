@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_081",
+  "ticketNumber": "OMNI-104",
+  "testName": "OmniStudio Calculation Matrix & Pricing Procedure Execution",
+  "project": "Omnistudio & Vlocity",
+  "objectName": "CalculationMatrix",
+  "steps": "1. Open OmniStudio Calculation Matrix \"Auto_Insurance_Premium_Matrix\"\n2. Verify active version 2.0 has inputs: Driver_Age_Group, Vehicle_Class, Coverage_Level\n3. Open Calculation Procedure and click \"Simulate\"\n4. Provide test inputs: Driver_Age_Group=\"25-35\", Vehicle_Class=\"SUV\", Coverage_Level=\"Comprehensive\"\n5. Click \"Calculate\"\n6. Verify calculated output premium equals exactly $142.50 / month\n7. Provide edge case: Driver_Age_Group=\"16-20\"\n8. Verify matrix correctly applies youthful operator surcharge factor (1.8x) yielding $256.50",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.770Z"
+}

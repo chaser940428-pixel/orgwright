@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_059",
+  "ticketNumber": "EXP-102",
+  "testName": "Conditional Field Interaction via Controlling Picklist Logic",
+  "project": "Experience Cloud",
+  "objectName": "Opportunity",
+  "steps": "1. Open Opportunities tab\n2. Open recent active Opportunity record\n3. Click on Edit button\n4. Notice \"Loss Reason Code\" and \"Competitor Name\" fields are currently hidden\n5. Change Stage picklist from \"Negotiation\" to \"Closed Lost\"\n6. Verify \"Loss Reason Code\" and \"Competitor Name\" fields instantly appear on screen without page reload\n7. Attempt to Save without filling Loss Reason Code\n8. Verify required validation highlight on the newly visible field",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.763Z"
+}

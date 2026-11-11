@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_074",
+  "ticketNumber": "INTG-102",
+  "testName": "Data Cloud Identity Resolution Rules & Unified Individual 360 Calculation",
+  "project": "Integrations & Data Cloud",
+  "objectName": "UnifiedIndividual__dlm",
+  "steps": "1. In Data Cloud, open Identity Resolution Rulesets\n2. Verify Rule 1: \"Normalized Email Exact Match AND First Name Fuzzy Match\"\n3. Ingest two disparate records with Email \"alex.turner@cloudcorp.example\" (One from CRM, One from WebStore)\n4. Trigger Ruleset execution job\n5. Navigate to Unified Individuals tab and query for \"alex.turner@cloudcorp.example\"\n6. Verify single Unified Individual record is produced\n7. Open Unified Link related list and verify both source system IDs are linked under unified master",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.768Z"
+}

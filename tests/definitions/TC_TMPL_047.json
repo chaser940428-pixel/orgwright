@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_047",
+  "ticketNumber": "COMM-102",
+  "testName": "Product Catalog Filtering, Attribute Variants & Volume Tiered Pricing",
+  "project": "Commerce Cloud",
+  "objectName": "Product2",
+  "steps": "1. In B2B Storefront, search for \"Hydraulic Pump\" in search bar\n2. In left facet filters, select Manufacturer \"AeroFluid\" and Rating \"Heavy Duty\"\n3. Click on product \"AeroFluid HP-500 Pump\"\n4. On Product Detail Page (PDP), select Attribute Variant \"Size: 2-Inch Bore\"\n5. Notice Base Unit Price is $450.00\n6. Change Quantity from 1 to 25 units\n7. Verify price recalculates dynamically to $380.00 reflecting wholesale Tier 2 Pricebook pricing\n8. Verify \"In Stock - Ships in 24 Hours\" availability badge renders",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.759Z"
+}

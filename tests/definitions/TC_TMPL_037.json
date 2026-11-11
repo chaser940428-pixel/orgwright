@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_037",
+  "ticketNumber": "HC-102",
+  "testName": "Clinical Care Plan Creation with Problems, Goals, and Actionable Tasks",
+  "project": "Health Cloud",
+  "objectName": "Case",
+  "steps": "1. Open Patient record \"Evelyn Reed\"\n2. Navigate to Care Plans subtab and click \"New Care Plan\"\n3. Select Care Plan Template \"Type 2 Diabetes Comprehensive Management\"\n4. Click Apply Template\n5. Verify Care Plan hierarchy loads with Problem \"Uncontrolled Blood Glucose (HbA1c > 8.0%)\"\n6. Verify Goal \"Maintain Daily Fasting Blood Glucose < 130 mg/dL\"\n7. Expand Task list and verify Care Coordinator Task \"Weekly CGM Data Review\" is generated\n8. Assign task to Nurse Care Coordinator \"Sarah Jenkins\" with due date next Friday\n9. Verify task appears on Care Coordinator's unified patient task list",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.756Z"
+}

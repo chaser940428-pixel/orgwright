@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_007",
+  "ticketNumber": "SALES-107",
+  "testName": "Create Contact and Associate with Parent Account",
+  "project": "Sales Cloud",
+  "objectName": "Contact",
+  "steps": "1. Open Contacts tab\n2. Click on New button\n3. Enter \"Elena\" in First Name\n4. Enter \"Rostova\" in Last Name\n5. Select existing Account from Account Name lookup\n6. Enter \"elena.rostova@example.com\" in Email field\n7. Enter \"VP of Engineering\" in Title field\n8. Click on Save button\n9. Verify toast \"Contact was created\"\n10. Click on Related Account link to verify Contact appears in Related Contacts list",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.744Z"
+}

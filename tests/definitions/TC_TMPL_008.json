@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_008",
+  "ticketNumber": "SALES-108",
+  "testName": "Establish Parent-Child Account Hierarchy and View Tree",
+  "project": "Sales Cloud",
+  "objectName": "Account",
+  "steps": "1. Open Accounts tab\n2. Click on New button\n3. Enter \"Acme EMEA Regional Office\" in Account Name\n4. In Parent Account lookup, search and select \"Acme Corporation\"\n5. Click on Save button\n6. Click on \"View Account Hierarchy\" icon next to the record name\n7. Verify hierarchy view displays \"Acme Corporation\" as root with \"Acme EMEA Regional Office\" as child",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.744Z"
+}

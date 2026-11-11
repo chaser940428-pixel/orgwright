@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_052",
+  "ticketNumber": "MKT-103",
+  "testName": "Campaign Member Status Progression, ROI Calculation & Influenced Opps",
+  "project": "Marketing Cloud",
+  "objectName": "Campaign",
+  "steps": "1. Open Campaigns tab\n2. Open Campaign \"Q3 Enterprise Tech Summit\"\n3. In Campaign Members related list, locate Contact \"Elena Rostova\"\n4. Update Member Status from \"Sent\" to \"Attended Conference\" (Responded=True)\n5. Click on Save button\n6. Open Opportunity \"Acme Corporation - Cloud Transformation\" linked to Elena's account\n7. Move Opportunity stage to \"Closed Won\" with Amount $250,000\n8. Return to Campaign record\n9. Verify \"Value Won Opportunities in Campaign\" reflects $250,000\n10. Verify Campaign ROI formula calculates positive return against Actual Cost budget",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.762Z"
+}

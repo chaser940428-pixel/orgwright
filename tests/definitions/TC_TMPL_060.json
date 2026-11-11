@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_060",
+  "ticketNumber": "EXP-103",
+  "testName": "Community Self-Service Portal Case Submission with File Attachment",
+  "project": "Experience Cloud",
+  "objectName": "Case",
+  "steps": "1. Open Experience Cloud Customer Portal URL\n2. Click on \"Contact Support\" button on home banner\n3. Enter \"Inquiry Regarding API Rate Limits\" in Subject\n4. Select \"API Services\" from Product Category\n5. Enter issue details in Description\n6. Click \"Upload Files\" and attach diagnostic error screenshot (.png)\n7. Click on Submit button\n8. Verify confirmation screen with generated Case Number (e.g. 00045231)\n9. Log in to internal Salesforce console and verify new Case is received with attachment in Files related list",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.764Z"
+}

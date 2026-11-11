@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_096",
+  "ticketNumber": "OS-ED-101",
+  "testName": "EDA: Student Course Connection Registration & Prerequisite Validation",
+  "project": "Open-Source & Custom Apps",
+  "objectName": "hed__Course_Enrollment__c",
+  "steps": "1. Open Student Contact \"Michael Zhang\"\n2. In Course Connections related list, click \"New Course Connection\"\n3. Select Course Offering \"CS-301: Advanced Algorithms (Fall 2026)\"\n4. In Record Type, select \"Student\"\n5. Enter Enrollment Status \"Enrolled\"\n6. Click on Save button\n7. Verify EDA automated prerequisite trigger validates that student previously completed \"CS-201: Data Structures\"\n8. Verify Course Offering current enrollment count increments from 24 to 25\n9. Verify Term Grade record is initialized in \"In Progress\" status",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.777Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_039",
+  "ticketNumber": "HC-104",
+  "testName": "Prior Authorization / Care Request Submission & Review Routing",
+  "project": "Health Cloud",
+  "objectName": "CareRequest__c",
+  "steps": "1. Open Care Requests tab\n2. Click on New button\n3. Select Care Request Type \"Prior Authorization Outpatient Surgery\"\n4. Link Patient \"Evelyn Reed\" and Requesting Provider \"Dr. Mark Vance\"\n5. Enter Diagnosis Code \"ICD-10: M17.11\" (Unilateral primary osteoarthritis)\n6. Enter Procedure Code \"CPT: 27447\" (Total Knee Arthroplasty)\n7. Upload clinical documentation PDF\n8. Click on Submit button\n9. Verify Care Request routes to \"Clinical Review Queue\"\n10. Log in as Medical Director persona, open record, and click \"Approve Authorization\"\n11. Verify Authorization Number is generated and Status updates to \"Approved\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.757Z"
+}

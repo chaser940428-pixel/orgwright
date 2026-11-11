@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Home | Salesforce</title></head>
+<body>
+<!-- Simplified Lightning header: App Launcher (waffle), app name and navigation bar with a "More" overflow -->
+<one-app-launcher-header><button aria-label="App Launcher" onclick="openLauncher()">::::</button></one-app-launcher-header>
+<one-app-nav-bar>
+  <div class="appName"><span title="Service" id="appName">Service</span></div>
+  <nav role="navigation"><ul id="bar"></ul></nav>
+  <one-app-nav-bar-menu-button><button onclick="document.getElementById('more').style.display='block'">More</button></one-app-nav-bar-menu-button>
+  <div id="more" style="display:none"></div>
+</one-app-nav-bar>
+<div id="launcher"></div>
+<main><h1 id="page">Home</h1></main>
+<script>
+  const APPS = {
+    'Service': { bar: ['Home', 'Cases', 'Contacts'], more: ['Reports'] },
+    'Sales': { bar: ['Home', 'Accounts', 'Opportunities'], more: ['Leads', 'Dashboards'] },
+    'Alliance Ortho': { bar: ['Home', 'Encounters', 'Patients'], more: ['Claims'] }
+  };
+  function renderApp(name) {
+    document.getElementById('appName').textContent = name;
+    document.getElementById('appName').title = name;
+    const bar = document.getElementById('bar');
+    bar.innerHTML = APPS[name].bar.map((t) => `<one-app-nav-bar-item-root><a href="#" title="${t}" onclick="openTab('${t}');return false">${t}</a></one-app-nav-bar-item-root>`).join('');
+    document.getElementById('more').innerHTML = APPS[name].more.map((t) => `<one-app-nav-bar-menu-item><a href="#" role="menuitem" onclick="openTab('${t}');return false">${t}</a></one-app-nav-bar-menu-item>`).join('');
+  }
+  function openTab(t) {
+    document.getElementById('page').textContent = t;
+    document.getElementById('more').style.display = 'none';
+    document.title = t + ' | Salesforce';
+  }
+  function openLauncher() {
+    document.getElementById('launcher').innerHTML =
+      '<one-app-launcher-menu><input type="search" placeholder="Search apps and items..." oninput="filterApps(this.value)"><div id="results"></div></one-app-launcher-menu>';
+  }
+  function filterApps(q) {
+    const hits = Object.keys(APPS).filter((a) => a.toLowerCase().includes(q.toLowerCase()));
+    document.getElementById('results').innerHTML = hits.map((a) => `<one-app-launcher-menu-item><a role="option" href="#" onclick="pick('${a}');return false"><b>${a}</b></a></one-app-launcher-menu-item>`).join('');
+  }
+  function pick(a) {
+    document.getElementById('launcher').innerHTML = '';
+    renderApp(a);
+    openTab('Home');
+  }
+  renderApp('Service');
+</script>
+</body></html>

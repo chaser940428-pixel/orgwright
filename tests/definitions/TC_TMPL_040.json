@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_040",
+  "ticketNumber": "HC-105",
+  "testName": "Social Determinants of Health (SDOH) Assessment & Care Barrier Identification",
+  "project": "Health Cloud",
+  "objectName": "CareBarrier__c",
+  "steps": "1. Open Patient record \"Evelyn Reed\"\n2. Navigate to Social Determinants tab\n3. Click on \"Assess Barrier\" button\n4. Select Barrier Type \"Transportation Insecurity\"\n5. Select Severity \"High\" and enter \"Patient lacks vehicle for weekly dialysis appointments\"\n6. Click on Save button\n7. In Interventions related list, click \"Add Intervention\"\n8. Select Program \"Non-Emergency Medical Transportation (NEMT) Shuttle Voucher\"\n9. Set Status to \"Enrolled\" and save\n10. Verify Care Barrier status updates to \"Addressed\" with green shield indicator",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.757Z"
+}

@@ -1,0 +1,11 @@
+{
+  "id": "TC_005",
+  "ticketNumber": "CRM-104",
+  "testName": "Create New Contact Associated with Account",
+  "project": "Sales Cloud",
+  "objectName": "Contact",
+  "steps": "1. Open Contacts tab\n2. Click on New button\n3. Enter \"Alex\" in First Name\n4. Enter \"Morgan\" in Last Name\n5. Enter \"alex.morgan@example.com\" in Email field\n6. Click on Save button\n7. Verify toast \"Contact was created\"",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T17:22:04.168Z",
+  "specCode": ""
+}

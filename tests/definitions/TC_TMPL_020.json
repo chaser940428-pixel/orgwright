@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_020",
+  "ticketNumber": "SRV-105",
+  "testName": "Close Case with Resolution Details & Customer Notification",
+  "project": "Service Cloud",
+  "objectName": "Case",
+  "steps": "1. Open Cases tab\n2. Open record \"Recent\"\n3. Click on \"Close Case\" button in Lightning action bar\n4. Select \"Closed\" from Status picklist\n5. Select \"Solved Problem\" from Case Reason picklist\n6. Enter \"SAML certificate renewed on identity provider\" in Internal Comments\n7. Click on Save button\n8. Verify field \"Status\" equals \"Closed\"\n9. Verify Close Date is populated with today's timestamp",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.749Z"
+}

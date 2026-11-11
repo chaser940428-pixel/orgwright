@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_027",
+  "ticketNumber": "KN-101",
+  "testName": "Author, Review and Publish Salesforce Knowledge Article",
+  "project": "Knowledge & Service",
+  "objectName": "Knowledge__kav",
+  "steps": "1. Open Knowledge tab\n2. Click on New button\n3. Select Record Type \"FAQ\"\n4. Enter \"How to Reset Multi-Factor Authentication\" in Title\n5. Enter step-by-step instructions in Article Body\n6. In Data Categories widget, assign Category \"Security & Access\"\n7. Check channels: \"Internal App\", \"Customer Community\", and \"Public Knowledge Base\"\n8. Click on Save button\n9. Click on \"Publish\" button\n10. Select \"Publish Now\" and click Save\n11. Verify article Publication Status updates to \"Published\" with Version 1.0",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.751Z"
+}

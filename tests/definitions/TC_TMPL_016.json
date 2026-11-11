@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_016",
+  "ticketNumber": "SRV-101",
+  "testName": "Log Customer Support Case and Verify Priority Routing",
+  "project": "Service Cloud",
+  "objectName": "Case",
+  "steps": "1. Open Cases tab\n2. Click on New button\n3. Select \"High\" from Priority picklist\n4. Select \"Email\" from Case Origin\n5. Select \"Problem\" from Type picklist\n6. Enter \"Login Authentication Failure in Production\" in Subject\n7. Enter \"Users in US-East are unable to authenticate via SSO\" in Description\n8. Click on Save button\n9. Verify toast \"Case was created\"\n10. Verify field \"Status\" equals \"New\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.748Z"
+}

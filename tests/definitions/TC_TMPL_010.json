@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_010",
+  "ticketNumber": "CPQ-101",
+  "testName": "Product Bundle Configuration & Option Constraint Validation",
+  "project": "CPQ & Billing",
+  "objectName": "Quote",
+  "steps": "1. Open Quotes tab\n2. Open recent Draft Quote\n3. Click on \"Edit Lines\" button to open Quote Line Editor\n4. Click on \"Add Products\" button\n5. Search for \"Cloud Enterprise Suite\" bundle and click Select\n6. Select mutually exclusive options (Option A and Option B)\n7. Click on Save in bundle configurator\n8. Verify validation alert: \"Option A and Option B cannot be selected together\"\n9. Deselect Option B and select mandatory \"Standard Support Add-on\"\n10. Click on Save and verify bundle line items populate with correct nested pricing",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.745Z"
+}

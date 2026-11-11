@@ -1,0 +1,6 @@
+packages:
+  - 'packages/*'
+  - 'apps/*'
+  - 'cli'
+allowBuilds:
+  esbuild: true

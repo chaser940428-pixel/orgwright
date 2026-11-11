@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_076",
+  "ticketNumber": "INTG-104",
+  "testName": "Salesforce REST Composite API Batch Payload & Transaction Rollback",
+  "project": "Integrations & Data Cloud",
+  "objectName": "REST_API",
+  "steps": "1. Send POST request to \"/services/data/v60.0/composite\" with allOrNone=true\n2. Sub-request 1: Create Account \"Valid Enterprise Corp\"\n3. Sub-request 2: Create Contact with invalid email format \"invalid-email-address\"\n4. Verify HTTP Response status is 400 Bad Request\n5. Verify sub-request 2 returns error code \"INVALID_EMAIL_ADDRESS\"\n6. In Salesforce UI, search for Account \"Valid Enterprise Corp\"\n7. Verify zero records exist, proving atomic transactional rollback across all batch items",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.769Z"
+}

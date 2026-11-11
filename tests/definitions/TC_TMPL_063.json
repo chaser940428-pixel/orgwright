@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_063",
+  "ticketNumber": "SEC-101",
+  "testName": "Field-Level Security (FLS) Read-Only Protection Across Profiles",
+  "project": "Platform & Security",
+  "objectName": "Account",
+  "steps": "1. Log in to Salesforce as Standard User\n2. Navigate to Account tab\n3. Open recent Account record\n4. Click on Details tab\n5. Verify field \"Annual Revenue\" is not editable (pencil icon absent)\n6. Verify field \"Account Number\" is read-only",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.764Z"
+}

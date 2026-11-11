@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "outDir": "./dist"
+  },
+  "include": [
+    "pages/**/*.ts",
+    "tests/**/*.ts",
+    "tests-kplay/**/*.ts",
+    "utils/**/*.ts",
+    "playwright.config.ts"
+  ]
+}

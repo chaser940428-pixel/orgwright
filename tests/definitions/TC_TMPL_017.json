@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_017",
+  "ticketNumber": "SRV-102",
+  "testName": "Omni-Channel Real-Time Work Routing & Agent Capacity Distribution",
+  "project": "Service Cloud",
+  "objectName": "Case",
+  "steps": "1. Log in as Support Agent persona\n2. In Omni-Channel utility widget, change presence status from \"Offline\" to \"Available - Cases\"\n3. In separate session, trigger new High-Priority Case routed to Tier 1 Queue\n4. Verify Omni-Channel widget rings / flashes with new incoming Case work item\n5. Click \"Accept Work\" button\n6. Verify Case tab opens in Service Console workspace and agent capacity reflects consumed units",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.748Z"
+}

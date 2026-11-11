@@ -1,0 +1,37 @@
+# Dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+playwright/.cache/
+
+# Test run artifacts
+test-results/
+playwright-report/
+blob-report/
+logs/
+*.log
+
+# Secrets & live sessions (never commit)
+.env
+.env.*
+!.env.example
+.auth/
+.test-profile/
+
+# Local org metadata caches & run history (contain org user names/emails)
+.kplay/
+.forceplay/
+forceplay/.forceplay/
+
+# Throwaway debugging scripts & screenshots against the live sandbox (kept locally)
+scratch/
+
+# Superseded by git history
+_backup_before_ux_fixes_20261110/
+*.tgz
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

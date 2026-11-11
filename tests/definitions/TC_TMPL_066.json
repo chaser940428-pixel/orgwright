@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_066",
+  "ticketNumber": "SEC-104",
+  "testName": "Permission Set Group (PSG) Composite Access Aggregation",
+  "project": "Platform & Security",
+  "objectName": "User",
+  "steps": "1. Open Setup > Users\n2. Open test user record \"Sales Ops Specialist\"\n3. Click on Permission Set Group Assignments related list\n4. Click \"Edit Assignments\" and assign group \"PSG_Enterprise_Sales_Operations\"\n5. Click on Save\n6. Log in as test user\n7. Verify user can access custom object \"Territory_Quota__c\" and has export permissions on Opportunity reports",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.765Z"
+}

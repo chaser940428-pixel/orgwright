@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_036",
+  "ticketNumber": "HC-101",
+  "testName": "Patient Person Account Enrollment & Clinical Demographic Validation",
+  "project": "Health Cloud",
+  "objectName": "Account",
+  "steps": "1. Open Health Cloud Patients tab\n2. Click on New Patient button\n3. Enter First Name \"Evelyn\" and Last Name \"Reed\"\n4. Enter Date of Birth \"1984-06-15\"\n5. Select Gender \"Female\"\n6. Enter Medical Record Number (MRN) \"MRN-882910\"\n7. Enter Primary Insurance Payer \"Aetna Commercial\"\n8. Click on Save button\n9. Verify Patient Card component initializes with Patient Age, MRN, and primary contact details\n10. Verify Clinical Data Model tabs (Conditions, Medications, Allergies) are accessible",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.756Z"
+}

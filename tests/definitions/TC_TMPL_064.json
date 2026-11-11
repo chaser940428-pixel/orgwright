@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_064",
+  "ticketNumber": "SEC-102",
+  "testName": "Role Hierarchy & Cross-Territory Record Visibility",
+  "project": "Platform & Security",
+  "objectName": "Opportunity",
+  "steps": "1. Log in to Salesforce as Sales Representative\n2. Navigate to Opportunities tab\n3. Verify private Opportunities owned by peers in other territories are not visible in list view\n4. Log in to Salesforce as Regional Sales Director\n5. Navigate to Opportunities tab\n6. Verify all Opportunities in subordinate sales reps' territories are visible",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.764Z"
+}

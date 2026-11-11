@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_068",
+  "ticketNumber": "FLOW-101",
+  "testName": "Record-Triggered Flow Execution on Account Tier Change",
+  "project": "Automations & Flows",
+  "objectName": "Account",
+  "steps": "1. Open Accounts tab\n2. Open recent Account record\n3. Click on Edit button\n4. Select \"Enterprise Strategic\" from SLA picklist\n5. Click on Save button\n6. Verify Record-Triggered Flow executes\n7. Verify automated Task \"Schedule Executive Onboarding Review\" is created under Activity Timeline",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.766Z"
+}

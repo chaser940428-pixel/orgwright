@@ -1,0 +1,11 @@
+{
+  "id": "TC_TMPL_030",
+  "ticketNumber": "KN-104",
+  "testName": "Knowledge Article Versioning, Archival and Multi-Language Translation",
+  "project": "Knowledge & Service",
+  "objectName": "Knowledge__kav",
+  "steps": "1. Open published Knowledge Article\n2. Click on \"Edit as New Version\" button in header\n3. Verify new draft version 1.1 is generated while version 1.0 remains live to customers\n4. Update instructions in Article Body\n5. In Language dropdown, click \"Submit for Translation\" for Target Language \"French (fr)\"\n6. Log in as French Translator persona and verify draft translation work item appears\n7. Submit and publish French translation\n8. On English master article, click \"Archive\" and select \"Archive Immediately\"\n9. Verify Publication Status changes to \"Archived\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-07T18:12:26.753Z"
+}
