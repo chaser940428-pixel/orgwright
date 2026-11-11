@@ -9,5 +9,5 @@ echo [1/2] Opening Studio in default browser: http://localhost:5173
 start http://localhost:5173
 echo [2/2] Starting ForcePlay Vite Frontend and Backend API Server...
 echo.
-pnpm --prefix forceplay --filter @forceplay/studio start
+pnpm --prefix forceplay --filter @kplay/studio start
 pause
