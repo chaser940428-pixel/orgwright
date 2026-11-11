@@ -99,7 +99,7 @@ export class StreamHelper {
 
     try {
       // 1. Setup Studio Server WebSocket connection for streaming
-      const ws = new WebSocket('ws://localhost:3001/ws');
+      const ws = new WebSocket('ws://127.0.0.1:3001/ws');
       this.ws = ws;
 
       // Handle interactive commands sent from studio during pause

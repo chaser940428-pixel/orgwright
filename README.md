@@ -126,7 +126,7 @@ npm run test:helpers   # Lightning helpers against saved HTML pages
 
 This is young software. It's been used against real orgs, but expect rough edges, especially with heavily customised Lightning pages. A few things I know about:
 
-- The Studio's API server is meant for your own machine. Don't expose it on a shared network.
+- The Studio only listens on your own machine and only accepts browser requests from its own page (see [SECURITY.md](SECURITY.md)).
 - `Run Apex` is parsed but not implemented yet; those steps fail on purpose.
 - Some org lookups block the API server while the `sf` CLI runs, so the Studio can feel stuck for a few seconds on first load.
 

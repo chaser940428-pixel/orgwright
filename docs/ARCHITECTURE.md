@@ -68,7 +68,7 @@ A React + Vite front end and an Express + WebSocket server (`server/index.ts`), 
 - **Org selection:** the Studio lists the orgs your Salesforce CLI knows. Set `ORGWRIGHT_ORGS=alias1,alias2` to limit the list (handy if your CLI also holds client orgs) and `ORGWRIGHT_DEFAULT_ORG` to choose the default.
 - **Nightly suite:** `server/cli/run-suite.ts` runs a whole project and can post a summary to Microsoft Teams (`ORGWRIGHT_TEAMS_WEBHOOK`).
 
-The server is meant for your own machine. It isn't hardened for a shared network yet.
+The server listens on `127.0.0.1` (UI on `localhost`) and rejects browser requests and WebSocket connections from any origin other than the Studio's own page, because it can run tests and write files. `ORGWRIGHT_HOST` and `ORGWRIGHT_ALLOWED_ORIGINS` loosen that deliberately; see [SECURITY.md](../SECURITY.md).
 
 ## `utils/lightning-helpers.ts`
 

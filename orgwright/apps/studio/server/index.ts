@@ -78,12 +78,35 @@ try {
 
 const app = express();
 const port = 3001;
+// The Studio server runs tests and writes files, so it only listens on this machine by default.
+// Set ORGWRIGHT_HOST=0.0.0.0 to expose it on your network deliberately.
+const host = process.env.ORGWRIGHT_HOST || '127.0.0.1';
 
-app.use(cors());
+// Only the Studio's own page may call the API from a browser. Requests without an Origin header
+// (the test runner, curl, scripts on this machine) are allowed. This stops any website you happen
+// to have open from driving the server.
+const allowedOrigins = new Set(
+  ['http://localhost:5173', 'http://127.0.0.1:5173', ...(process.env.ORGWRIGHT_ALLOWED_ORIGINS || '').split(',')]
+    .map((o) => o.trim())
+    .filter(Boolean)
+);
+const isAllowedOrigin = (origin?: string) => !origin || allowedOrigins.has(origin);
+
+app.use(cors({ origin: (origin, cb) => cb(null, isAllowedOrigin(origin)) }));
+app.use((req, res, next) => {
+  if (!isAllowedOrigin(req.headers.origin)) {
+    return res.status(403).json({ error: `Origin ${req.headers.origin} is not allowed to use the Orgwright Studio API` });
+  }
+  next();
+});
 app.use(express.json());
 
 const server = createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const wss = new WebSocketServer({
+  server,
+  path: '/ws',
+  verifyClient: ({ origin }: { origin?: string }) => isAllowedOrigin(origin)
+});
 
 const clients = new Set<WebSocket>();
 
@@ -1648,7 +1671,7 @@ app.post('/api/templates/import-all', (req, res) => {
   }
 });
 
-server.listen(port, () => {
-  console.log(`[Orgwright Studio Server] Running on http://localhost:${port}`);
-  console.log(`[Orgwright Studio Server] WebSocket listening on ws://localhost:${port}/ws`);
+server.listen(port, host, () => {
+  console.log(`[Orgwright Studio Server] Running on http://${host}:${port}`);
+  console.log(`[Orgwright Studio Server] WebSocket listening on ws://${host}:${port}/ws`);
 });

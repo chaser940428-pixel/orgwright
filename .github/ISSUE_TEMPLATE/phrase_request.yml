@@ -1,0 +1,27 @@
+name: Step phrase request
+description: You wrote a step in plain English and Orgwright didn't understand it
+labels: [phrase-request]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These requests decide which phrases Orgwright learns next, so they're really useful. One phrase per issue, please.
+  - type: input
+    id: phrase
+    attributes:
+      label: The step you wanted to write
+      placeholder: Clone this record and change the "Stage" to "Prospecting"
+    validations:
+      required: true
+  - type: textarea
+    id: meaning
+    attributes:
+      label: What it should do in Salesforce
+      description: Which page, which button or field, and what should happen.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How you work around it today
+      description: Optional. Another phrasing that works, or a manual step.

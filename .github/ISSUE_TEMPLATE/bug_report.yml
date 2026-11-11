@@ -1,0 +1,54 @@
+name: Bug report
+description: A step or test didn't do what it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **Please remove anything private first**: record names, customer data, org URLs and usernames.
+  - type: textarea
+    id: steps
+    attributes:
+      label: The steps you wrote
+      description: Paste the step text exactly as you typed it. The exact wording matters.
+      placeholder: |
+        1. Open Account list
+        2. Click on New button
+        3. Enter "Acme {{unique}}" in "Account Name"
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: The error message from the Studio or the terminal, and a screenshot if you can share one.
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did it happen?
+      options:
+        - Studio (Run Test)
+        - Command line (npx playwright test)
+        - Studio step check / suggestions
+        - Somewhere else
+    validations:
+      required: true
+  - type: input
+    id: org
+    attributes:
+      label: Org type
+      placeholder: Developer Edition, sandbox, scratch org…
+  - type: input
+    id: version
+    attributes:
+      label: Orgwright version or commit
+      placeholder: v0.1.0, or the output of git rev-parse --short HEAD
