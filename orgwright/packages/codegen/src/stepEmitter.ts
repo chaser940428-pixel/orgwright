@@ -173,9 +173,9 @@ export function emitActionCode(
       if (fieldName && fieldName !== 'ActiveField' && valStr) {
         lines.push(`const input = ${page}.getByRole('textbox', { name: /${regexPattern}/i })`);
         lines.push(`  .or(${page}.getByRole('spinbutton', { name: /${regexPattern}/i }))`);
-        lines.push(`  .or(${page}.getByLabel(/${regexPattern}/i))`);
+        lines.push(`  .or(${page}.getByLabel(/^\\W*(?:${regexPattern})\\W*$/i))`);
         lines.push(`  .or(${page}.locator('records-record-layout-item, .slds-form-element, lightning-textarea, lightning-input').filter({ hasText: /${regexPattern}/i }).locator('textarea, input'))`);
-        lines.push(`  .first();`);
+        lines.push(`  .filter({ visible: true }).first();`);
         lines.push(`await input.waitFor({ state: 'visible', timeout: 15000 });`);
         lines.push(`await input.click();`);
         lines.push(`await input.fill(${valueExpr(valStr)});`);
@@ -184,9 +184,9 @@ export function emitActionCode(
       } else if (fieldName && fieldName !== 'ActiveField' && !valStr) {
         lines.push(`const input = ${page}.getByRole('textbox', { name: /${regexPattern}/i })`);
         lines.push(`  .or(${page}.getByRole('spinbutton', { name: /${regexPattern}/i }))`);
-        lines.push(`  .or(${page}.getByLabel(/${regexPattern}/i))`);
+        lines.push(`  .or(${page}.getByLabel(/^\\W*(?:${regexPattern})\\W*$/i))`);
         lines.push(`  .or(${page}.locator('records-record-layout-item, .slds-form-element, lightning-textarea, lightning-input').filter({ hasText: /${regexPattern}/i }).locator('textarea, input'))`);
-        lines.push(`  .first();`);
+        lines.push(`  .filter({ visible: true }).first();`);
         lines.push(`await input.waitFor({ state: 'visible', timeout: 15000 });`);
         lines.push(`await input.click();`);
         lines.push(`await LightningHelpers.waitForLightningReady(${page});`);
@@ -207,9 +207,9 @@ export function emitActionCode(
         lines.push(`await LightningHelpers.selectCombobox(${page}, ${JSON.stringify(fieldName)}, ${valueExpr(valStr)});`);
       } else if (fieldName && !valStr) {
         lines.push(`const dropdown = ${page}.getByRole('combobox', { name: /${escapeRegex(fieldName)}/i })`);
-        lines.push(`  .or(${page}.getByLabel(/${escapeRegex(fieldName)}/i))`);
+        lines.push(`  .or(${page}.getByLabel(/^\\W*${escapeRegex(fieldName)}\\W*$/i))`);
         lines.push(`  .or(${page}.locator('lightning-combobox, records-record-layout-item, .slds-form-element').filter({ hasText: /${escapeRegex(fieldName)}/i }).locator('button, select, input, [role="combobox"]'))`);
-        lines.push(`  .first();`);
+        lines.push(`  .filter({ visible: true }).first();`);
         lines.push(`await dropdown.waitFor({ state: 'visible', timeout: 15000 });`);
         lines.push(`await dropdown.click();`);
         lines.push(`await LightningHelpers.waitForLightningReady(${page});`);
@@ -233,7 +233,7 @@ export function emitActionCode(
       const fieldName = action.field || action.target;
       const valStr = action.value !== undefined ? String(action.value) : '';
       lines.push(`const lookupValue = ${valueExpr(valStr)};`);
-      lines.push(`const lookupInput = ${page}.locator('lightning-grouped-combobox, records-record-layout-item').filter({ hasText: ${JSON.stringify(fieldName)} }).locator('input').first();`);
+      lines.push(`const lookupInput = ${page}.locator('lightning-grouped-combobox, records-record-layout-item').filter({ hasText: ${JSON.stringify(fieldName)} }).locator('input').filter({ visible: true }).first();`);
       lines.push(`await lookupInput.fill(lookupValue);`);
       lines.push(`const lookupOption = ${page}.locator('lightning-base-combobox-item, [role="option"]').filter({ hasText: lookupValue }).first();`);
       lines.push(`await lookupOption.waitFor({ state: 'visible', timeout: 15000 });`);

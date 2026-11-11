@@ -267,6 +267,7 @@ export function StepEditor({
   const [apps, setApps] = useState<Array<{ label: string; name: string }>>([]);
   const [navTabs, setNavTabs] = useState<Array<{ label: string; name: string; sobject?: string }>>([]);
   useEffect(() => {
+    if (!selectedOrg) return;
     fetch(`/api/org/apps?alias=${encodeURIComponent(selectedOrg)}`)
       .then((r) => r.json())
       .then((d) => setApps(d.success ? d.apps || [] : []))
@@ -280,7 +281,7 @@ export function StepEditor({
   // List views of the selected object (autocomplete for "Select list view")
   const [listViews, setListViews] = useState<Array<{ label: string; name: string }>>([]);
   useEffect(() => {
-    if (!objectContext) return;
+    if (!objectContext || !selectedOrg) return;
     fetch(`/api/org/listviews?alias=${encodeURIComponent(selectedOrg)}&object=${encodeURIComponent(objectContext)}`)
       .then((r) => r.json())
       .then((d) => setListViews(d.success ? d.listViews || [] : []))
@@ -310,7 +311,7 @@ export function StepEditor({
 
   const loadFields = useCallback(
     (refresh = false) => {
-      if (!objectContext) return;
+      if (!objectContext || !selectedOrg) return;
       setFieldsStatus('loading');
       setFieldsError(null);
       fetch(`/api/org/describe?alias=${encodeURIComponent(selectedOrg)}&object=${encodeURIComponent(objectContext)}${refresh ? '&refresh=true' : ''}`)

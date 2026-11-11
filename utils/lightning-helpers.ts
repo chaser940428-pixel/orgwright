@@ -23,6 +23,19 @@ export class LightningHelpers {
   }
 
   /**
+   * Salesforce shows in-app guidance ("Try the new Salesforce Setup", feature tours) at random moments.
+   * Their mask blocks every click on the page, so dismiss them automatically whenever one appears.
+   * Set ORGWRIGHT_KEEP_PROMPTS=1 to turn this off (e.g. when a test checks a prompt on purpose).
+   */
+  static async dismissInAppPrompts(page: Page): Promise<void> {
+    if (process.env.ORGWRIGHT_KEEP_PROMPTS === '1') return;
+    const dismiss = page.getByRole('button', { name: /^(Dismiss|Remind Me Later)$/ }).first();
+    await page.addLocatorHandler(dismiss, async () => {
+      await dismiss.click({ timeout: 5000 }).catch(() => {});
+    }, { noWaitAfter: true });
+  }
+
+  /**
    * Waits for SLDS spinners to disappear and in-flight Lightning server calls to finish.
    * Replaces fixed sleeps: returns in ~100ms when the page is already idle.
    */
@@ -68,10 +81,10 @@ export class LightningHelpers {
     if (typeof fieldOrLocator === 'string') {
       const name = fieldOrLocator;
       combobox = page.getByRole('combobox', { name: new RegExp(name, 'i') })
-        .or(page.getByLabel(new RegExp(name, 'i')))
+        .or(page.getByLabel(new RegExp(`^\\W*${name}\\W*$`, 'i')))
         .or(page.locator(`select[name*="${name}" i], select[id*="${name}" i]`))
         .or(page.locator('lightning-combobox, records-record-layout-item, .slds-form-element').filter({ hasText: new RegExp(name, 'i') }).locator('button, select, input, [role="combobox"]'))
-        .first();
+        .filter({ visible: true }).first();
     } else {
       combobox = fieldOrLocator;
     }

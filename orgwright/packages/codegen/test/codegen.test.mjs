@@ -83,6 +83,17 @@ test('no generated step silently skips: no visibility-guarded actions', () => {
   }
 });
 
+test('field locators only match visible elements (list-view headers behind a modal share the label)', () => {
+  for (const action of [
+    { type: 'fill_field', target: 'Account Name', field: 'Account Name', value: 'Acme', confidence: 1 },
+    { type: 'fill_field', target: 'Account Name', field: 'Account Name', confidence: 1 },
+    { type: 'select_picklist', target: 'Industry', field: 'Industry', confidence: 1 },
+    { type: 'select_lookup', target: 'Account', field: 'Account Name', value: 'Acme', confidence: 1 }
+  ]) {
+    assert.match(emitActionCode(action), /\.filter\(\{ visible: true \}\)\.first\(\)/, `${action.type} must skip hidden matches`);
+  }
+});
+
 test('unrecognised (custom) steps throw instead of passing', () => {
   const code = emitActionCode({ type: 'custom', target: 'Frobnicate', confidence: 0.5 }, 'Frobnicate the widget');
   assert.match(code, /throw new Error\(.*does not understand this step: \\"Frobnicate the widget\\"/);

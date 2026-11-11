@@ -35,7 +35,9 @@ export class SalesforceAuth {
     let adminAuthenticated = false;
 
     // Strategy 1: Salesforce CLI frontdoor.jsp login (Bypasses MFA & IP restrictions instantly)
-    const aliasesToTry = [orgAlias, 'sandboxOrg', 'stage', username].filter(Boolean);
+    // Only the configured org (alias, then username). Never fall back to other aliases: that could
+    // silently log the tests into a different org than the one in .env.
+    const aliasesToTry = [orgAlias, username].filter(Boolean);
     const uniqueAliases = [...new Set(aliasesToTry)];
 
     for (const alias of uniqueAliases) {

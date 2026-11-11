@@ -139,8 +139,11 @@ if (!fs.existsSync(cacheDir)) {
 // 2. Org List (All connected orgs from CLI)
 app.get('/api/org/list', (req, res) => {
   try {
-    const orgs = listConnectedOrgs();
-    res.json({ success: true, orgs });
+    // ORGWRIGHT_ORGS="alias1,alias2" limits the Studio to those CLI orgs (e.g. keep client orgs out of a demo)
+    const allowed = (process.env.ORGWRIGHT_ORGS || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const orgs = listConnectedOrgs().filter((o) => !allowed.length || allowed.includes(o.alias) || allowed.includes(o.username));
+    const defaultAlias = process.env.ORGWRIGHT_DEFAULT_ORG || process.env.SF_ORG_ALIAS || 'sandboxOrg';
+    res.json({ success: true, orgs, defaultAlias });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

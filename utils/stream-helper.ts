@@ -59,6 +59,9 @@ export class StreamHelper {
     this.currentStepStartTime = Date.now();
     this.currentStepAuraActions = [];
 
+    // Salesforce in-app prompts would otherwise block clicks at random
+    await LightningHelpers.dismissInAppPrompts(page);
+
     // Fresh per-step screenshot folder for this test id
     try {
       fs.rmSync(this.stepScreenshotDir(), { recursive: true, force: true });
@@ -425,9 +428,9 @@ export class StreamHelper {
         if (field) {
           const input = page.getByRole('textbox', { name: new RegExp(field, 'i') })
             .or(page.getByRole('spinbutton', { name: new RegExp(field, 'i') }))
-            .or(page.getByLabel(new RegExp(field, 'i')))
+            .or(page.getByLabel(new RegExp(`^\\W*${field}\\W*$`, 'i')))
             .or(page.locator('records-record-layout-item, .slds-form-element, lightning-textarea, lightning-input').filter({ hasText: new RegExp(field, 'i') }).locator('textarea, input'))
-            .first();
+            .filter({ visible: true }).first();
           await input.waitFor({ state: 'visible', timeout: 12000 });
           await input.click();
           await input.fill(val);
