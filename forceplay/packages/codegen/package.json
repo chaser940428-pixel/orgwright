@@ -12,7 +12,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "test": "node --test \"test/*.test.mjs\""
   },
   "dependencies": {
     "@kplay/core": "workspace:*",

@@ -19,8 +19,10 @@
     "kplay:build": "pnpm --prefix forceplay -r run build",
     "suite:nightly": "pnpm --prefix forceplay --filter @kplay/studio exec tsx server/cli/run-suite.ts",
     "test:helpers": "playwright test -c tests-kplay/playwright.unit.config.ts",
-    "test:parser": "node --test forceplay/packages/resolver/test/parser.test.mjs",
-    "fixture:capture": "npx tsx tests-kplay/capture-fixture.ts"
+    "test:parser": "node --test \"forceplay/packages/resolver/test/*.test.mjs\"",
+    "fixture:capture": "npx tsx tests-kplay/capture-fixture.ts",
+    "test:codegen": "node --test \"forceplay/packages/codegen/test/*.test.mjs\"",
+    "test:unit": "pnpm --prefix forceplay -r run build && node --test \"forceplay/packages/resolver/test/*.test.mjs\" \"forceplay/packages/codegen/test/*.test.mjs\""
   },
   "keywords": [
     "salesforce",

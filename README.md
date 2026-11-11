@@ -77,6 +77,14 @@ npm run test:headed
 npm run test:report
 ```
 
+### Platform Unit Tests (no Salesforce org needed)
+```powershell
+npm run test:unit      # builds forceplay packages, runs step-parser + code-generator tests
+npm run test:helpers   # Lightning helpers against saved HTML fixtures
+```
+
+Generated steps fail loudly: a step KPlay does not understand, a missing tab or a missing field fails the test with a clear message instead of being skipped.
+
 ---
 
 ## 📋 Test Case Mapping (`RCM Notes Sync.xlsx`)
