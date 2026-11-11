@@ -5,7 +5,9 @@
 [![CI](https://github.com/krishnakumar11oct1995-star/orgwright/actions/workflows/ci.yml/badge.svg)](https://github.com/krishnakumar11oct1995-star/orgwright/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<!-- Demo GIF goes here: steps typed in English -> generated code -> live run -> a failed step being repaired in the open browser. -->
+![Orgwright Studio: plain-English steps, a typo caught before the run, the run pausing on the failed step, the fix, and all 7 steps passing](docs/orgwright-demo.gif)
+
+*A typo'd field name is flagged before the run. The run pauses on the failing step with the browser still open, the step is fixed, and the test finishes green. Recorded against a free Developer Edition org.*
 
 You type what a tester would write in a test case:
 

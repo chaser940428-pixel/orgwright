@@ -119,7 +119,8 @@ interface TestCaseItem {
 export default function App() {
   // Connected Orgs & Objects state
   const [orgList, setOrgList] = useState<OrgInfo[]>([]);
-  const [selectedOrg, setSelectedOrg] = useState('sandboxOrg');
+  // Empty until /api/org/list answers, so nothing is loaded from an org the user did not pick
+  const [selectedOrg, setSelectedOrg] = useState('');
   const [orgStatus, setOrgStatus] = useState<OrgStatus | null>(null);
   const [isConnectingOrg, setIsConnectingOrg] = useState(false);
   const [showOrgConnectorModal, setShowOrgConnectorModal] = useState(false);
@@ -442,7 +443,8 @@ export default function App() {
       .then((data) => {
         if (data.orgs && data.orgs.length > 0) {
           setOrgList(data.orgs);
-          const defaultAlias = data.orgs.some((o: OrgInfo) => o.alias === 'sandboxOrg') ? 'sandboxOrg' : data.orgs[0].alias;
+          // The server picks the default (ORGWRIGHT_DEFAULT_ORG / SF_ORG_ALIAS); fall back to the first org
+          const defaultAlias = data.orgs.some((o: OrgInfo) => o.alias === data.defaultAlias) ? data.defaultAlias : data.orgs[0].alias;
           setSelectedOrg(defaultAlias);
           fetchOrgStatus(defaultAlias);
           fetchObjects(defaultAlias, false);
@@ -450,9 +452,7 @@ export default function App() {
         }
       })
       .catch(() => {
-        fetchOrgStatus('sandboxOrg');
-        fetchObjects('sandboxOrg', false);
-        fetchOrgUsers('sandboxOrg', false);
+        // No org list: leave the org unselected rather than guessing an alias
       });
 
     // 2. Fetch saved test cases
@@ -1797,12 +1797,18 @@ export default function App() {
         <div className="max-w-[1920px] mx-auto px-5 py-2.5 flex items-center justify-between">
           {/* Left: Brand + Project Context */}
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xs font-bold text-sm tracking-wider">
-              K
-            </div>
+            <img
+              src="/logo-icon.png"
+              alt="OrgWright"
+              className="h-8 w-8 rounded-lg object-contain shadow-xs border border-slate-200 bg-white"
+              onError={(e) => {
+                // Fallback if image not yet loaded
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
             <div className="flex items-center space-x-2">
               <span className="font-bold text-base text-slate-900 tracking-tight">
-                Orgwright <span className="text-blue-600 font-semibold">Studio</span>
+                OrgWright <span className="text-blue-600 font-semibold">Studio</span>
               </span>
             </div>
 
@@ -1865,7 +1871,13 @@ export default function App() {
                 <div className={`h-2 w-2 rounded-full ${orgStatus?.connected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                 <span className="font-semibold text-slate-900">{selectedOrg}</span>
                 <span className="px-1.5 py-0.2 rounded text-[11px] font-medium bg-white text-slate-600 border border-slate-200">
-                  {orgList.find(o => o.alias === selectedOrg)?.isSandbox ? 'Sandbox' : 'Prod'}
+                  {(() => {
+                    const org = orgList.find(o => o.alias === selectedOrg);
+                    if (org?.isSandbox) return 'Sandbox';
+                    // Developer Edition orgs live on *.develop.my.salesforce.com
+                    if (/\.develop\.my\.salesforce\.com|dev-ed/i.test((org as { instanceUrl?: string } | undefined)?.instanceUrl || '')) return 'Developer';
+                    return 'Prod';
+                  })()}
                 </span>
                 <ChevronDown className="h-3 w-3 text-slate-400 ml-0.5" />
               </button>
