@@ -41,3 +41,6 @@ Thumbs.db
 
 # Local Claude Code settings
 .claude/
+
+# Internal documents (business model, client-specific guides, drafts) - kept locally, never published
+private-docs/

@@ -90,6 +90,11 @@ Prefer the command line? Generated specs live in `tests/generated/` and run like
 npm run test:regression
 ```
 
+## Docs
+
+- [Tester guide](docs/TESTER-GUIDE.md): writing steps, every phrase Orgwright understands, running tests and repairing failures. No code needed.
+- [How Orgwright works](docs/ARCHITECTURE.md): the packages, the Studio and how a step becomes Playwright code.
+
 ## Project layout
 
 ```text
