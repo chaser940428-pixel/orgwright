@@ -1,0 +1,17 @@
+{
+  "id": "DE_002",
+  "ticketNumber": "DE-2",
+  "testName": "Create a contact",
+  "project": "Developer Edition starter tests",
+  "objectName": "Contact",
+  "scenarioType": "positive",
+  "tags": [
+    "starter",
+    "developer-edition"
+  ],
+  "priority": "Medium",
+  "steps": "1. Log in to Salesforce\n2. Open Contact list\n3. Click on New button\n4. Enter \"avery.tester@example.com\" in \"Email\"\n5. Enter \"Avery\" in \"First Name\"\n6. Enter \"Tester {{unique}}\" in \"Last Name\"\n7. Click on Save button\n8. Verify toast \"was created\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-11T08:59:04.095Z"
+}

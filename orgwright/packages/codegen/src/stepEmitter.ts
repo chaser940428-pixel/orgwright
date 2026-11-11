@@ -170,24 +170,34 @@ export function emitActionCode(
         ? `${escapeRegex(cleanField).replace(/['’]/g, '.?')}|${escapeRegex(fieldName).replace(/['’]/g, '.?')}`
         : escapeRegex(fieldName).replace(/['’]/g, '.?');
 
+      // Prefer the field's own input (role or exact label). Only fall back to "an input inside a form
+      // element that mentions the label" when there is none: in compound fields like Contact Name, the
+      // whole block mentions "Last Name" and its first input is First Name.
+      const findInput = [
+        `const exactInput = ${page}.getByRole('textbox', { name: /${regexPattern}/i })`,
+        `  .or(${page}.getByRole('spinbutton', { name: /${regexPattern}/i }))`,
+        `  .or(${page}.getByLabel(/^\\W*(?:${regexPattern})\\W*$/i))`,
+        `  .filter({ visible: true });`,
+        `const nearbyInput = ${page}.locator('records-record-layout-item, .slds-form-element, lightning-textarea, lightning-input').filter({ hasText: /${regexPattern}/i }).locator('textarea, input').filter({ visible: true });`,
+        `await exactInput.or(nearbyInput).first().waitFor({ state: 'visible', timeout: 15000 });`,
+        `const input = (await exactInput.count()) > 0 ? exactInput.first() : nearbyInput.first();`
+      ];
       if (fieldName && fieldName !== 'ActiveField' && valStr) {
-        lines.push(`const input = ${page}.getByRole('textbox', { name: /${regexPattern}/i })`);
-        lines.push(`  .or(${page}.getByRole('spinbutton', { name: /${regexPattern}/i }))`);
-        lines.push(`  .or(${page}.getByLabel(/^\\W*(?:${regexPattern})\\W*$/i))`);
-        lines.push(`  .or(${page}.locator('records-record-layout-item, .slds-form-element, lightning-textarea, lightning-input').filter({ hasText: /${regexPattern}/i }).locator('textarea, input'))`);
-        lines.push(`  .filter({ visible: true }).first();`);
-        lines.push(`await input.waitFor({ state: 'visible', timeout: 15000 });`);
+        lines.push(...findInput);
+        lines.push(`const fieldValue = ${valueExpr(valStr)};`);
         lines.push(`await input.click();`);
-        lines.push(`await input.fill(${valueExpr(valStr)});`);
+        lines.push(`await input.fill(fieldValue);`);
         lines.push(`await input.press('Tab');`);
         lines.push(`await LightningHelpers.waitForLightningReady(${page});`);
+        // Compound fields (e.g. Contact Name) can re-render and wipe a value; re-type once, then insist
+        lines.push(`if ((await input.inputValue().catch(() => '')) !== fieldValue) {`);
+        lines.push(`  await input.fill(fieldValue);`);
+        lines.push(`  await input.press('Tab');`);
+        lines.push(`  await LightningHelpers.waitForLightningReady(${page});`);
+        lines.push(`}`);
+        lines.push(`await expect(input).toHaveValue(fieldValue);`);
       } else if (fieldName && fieldName !== 'ActiveField' && !valStr) {
-        lines.push(`const input = ${page}.getByRole('textbox', { name: /${regexPattern}/i })`);
-        lines.push(`  .or(${page}.getByRole('spinbutton', { name: /${regexPattern}/i }))`);
-        lines.push(`  .or(${page}.getByLabel(/^\\W*(?:${regexPattern})\\W*$/i))`);
-        lines.push(`  .or(${page}.locator('records-record-layout-item, .slds-form-element, lightning-textarea, lightning-input').filter({ hasText: /${regexPattern}/i }).locator('textarea, input'))`);
-        lines.push(`  .filter({ visible: true }).first();`);
-        lines.push(`await input.waitFor({ state: 'visible', timeout: 15000 });`);
+        lines.push(...findInput);
         lines.push(`await input.click();`);
         lines.push(`await LightningHelpers.waitForLightningReady(${page});`);
       } else if (valStr) {

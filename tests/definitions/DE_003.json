@@ -1,0 +1,17 @@
+{
+  "id": "DE_003",
+  "ticketNumber": "DE-3",
+  "testName": "Create an opportunity",
+  "project": "Developer Edition starter tests",
+  "objectName": "Opportunity",
+  "scenarioType": "positive",
+  "tags": [
+    "starter",
+    "developer-edition"
+  ],
+  "priority": "Medium",
+  "steps": "1. Log in to Salesforce\n2. Open Opportunity list\n3. Click on New button\n4. Enter \"Q4 Expansion {{unique}}\" in \"Opportunity Name\"\n5. Enter \"{{today+30}}\" in \"Close Date\"\n6. Select \"Prospecting\" from \"Stage\" picklist\n7. Click on Save button\n8. Verify toast \"was created\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-11T08:59:04.095Z"
+}

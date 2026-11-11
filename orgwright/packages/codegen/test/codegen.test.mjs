@@ -90,8 +90,14 @@ test('field locators only match visible elements (list-view headers behind a mod
     { type: 'select_picklist', target: 'Industry', field: 'Industry', confidence: 1 },
     { type: 'select_lookup', target: 'Account', field: 'Account Name', value: 'Acme', confidence: 1 }
   ]) {
-    assert.match(emitActionCode(action), /\.filter\(\{ visible: true \}\)\.first\(\)/, `${action.type} must skip hidden matches`);
+    assert.match(emitActionCode(action), /\.filter\(\{ visible: true \}\)/, `${action.type} must skip hidden matches`);
   }
+});
+
+test('fill_field prefers the exact field input over inputs inside a container that mentions the label', () => {
+  const code = emitActionCode({ type: 'fill_field', target: 'Last Name', field: 'Last Name', value: 'Tester', confidence: 1 });
+  assert.match(code, /const input = \(await exactInput\.count\(\)\) > 0 \? exactInput\.first\(\) : nearbyInput\.first\(\);/);
+  assert.match(code, /await expect\(input\)\.toHaveValue\(fieldValue\);/);
 });
 
 test('unrecognised (custom) steps throw instead of passing', () => {

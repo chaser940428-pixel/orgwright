@@ -1,0 +1,17 @@
+{
+  "id": "DE_001",
+  "ticketNumber": "DE-1",
+  "testName": "Create an account",
+  "project": "Developer Edition starter tests",
+  "objectName": "Account",
+  "scenarioType": "positive",
+  "tags": [
+    "starter",
+    "developer-edition"
+  ],
+  "priority": "Medium",
+  "steps": "1. Log in to Salesforce\n2. Open Account list\n3. Click on New button\n4. Enter \"Acme {{unique}}\" in \"Account Name\"\n5. Select \"Technology\" from \"Industry\" picklist\n6. Enter \"555-0188\" in \"Phone\"\n7. Click on Save button\n8. Verify toast \"was created\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-11T08:59:04.095Z"
+}

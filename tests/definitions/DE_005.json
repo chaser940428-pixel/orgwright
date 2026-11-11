@@ -1,0 +1,17 @@
+{
+  "id": "DE_005",
+  "ticketNumber": "DE-5",
+  "testName": "Account Name is required",
+  "project": "Developer Edition starter tests",
+  "objectName": "Account",
+  "scenarioType": "negative",
+  "tags": [
+    "starter",
+    "developer-edition"
+  ],
+  "priority": "Medium",
+  "steps": "1. Log in to Salesforce\n2. Open Account list\n3. Click on New button\n4. Click on Save button\n5. Verify error \"Complete this field.\" on \"Account Name\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-11T08:59:04.095Z"
+}

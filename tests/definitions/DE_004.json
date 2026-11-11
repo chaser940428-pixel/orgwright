@@ -1,0 +1,17 @@
+{
+  "id": "DE_004",
+  "ticketNumber": "DE-4",
+  "testName": "Log a high-priority email case",
+  "project": "Developer Edition starter tests",
+  "objectName": "Case",
+  "scenarioType": "positive",
+  "tags": [
+    "starter",
+    "developer-edition"
+  ],
+  "priority": "Medium",
+  "steps": "1. Log in to Salesforce\n2. Open Case list\n3. Click on New button\n4. Select \"Email\" from \"Case Origin\" picklist\n5. Select \"High\" from \"Priority\" picklist\n6. Enter \"API timeout {{unique}}\" in \"Subject\"\n7. Click on Save button\n8. Verify toast \"was created\"",
+  "specCode": "",
+  "lastStatus": "idle",
+  "updatedAt": "2026-11-11T08:59:04.095Z"
+}
