@@ -91,25 +91,37 @@ after(async () => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
-test('CLI arguments retain spaces, quotes and shell metacharacters literally', async () => {
-  const previousPath = process.env.PATH;
-  const previousDirectory = process.env.ORGWRIGHT_FIXTURE_DIR;
-  const previousPercent = process.env.ORGWRIGHT_FIXTURE_PERCENT;
-  const args = ['data', 'query', '-o', 'fixture-quoting', '-q', 'SELECT "Name", Id FROM User',
-    'space & pipe | (parentheses) %ORGWRIGHT_FIXTURE_PERCENT% ^ < > "quote" trailing\\'];
-  release('fixture-quoting', { echoArgs: true });
-  try {
-    process.env.PATH = `${bin}${path.delimiter}${previousPath || ''}`;
-    process.env.ORGWRIGHT_FIXTURE_DIR = root;
-    process.env.ORGWRIGHT_FIXTURE_PERCENT = 'must-not-expand';
-    assert.deepEqual(await executeSfCommand(args), args);
-  } finally {
-    for (const [key, value] of Object.entries({ PATH: previousPath, ORGWRIGHT_FIXTURE_DIR: previousDirectory, ORGWRIGHT_FIXTURE_PERCENT: previousPercent })) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
+for (const [label, value] of [
+  ['percent', '%ORGWRIGHT_FIXTURE_PERCENT%'],
+  ['exclamation', '!ORGWRIGHT_FIXTURE_PERCENT!'],
+  ['caret', 'before^after'],
+  ['opening quote', '"begin'],
+  ['closing quote', 'end"'],
+  ['both quotes', '"quoted"'],
+  ['trailing backslash', 'path with space\\'],
+  ['backslash before quote', 'path\\"quoted'],
+  ['empty value', ''],
+  ['combined', 'space & pipe | (parentheses) %ORGWRIGHT_FIXTURE_PERCENT% ^ < > "quote" trailing\\'],
+]) {
+  test(`CLI arguments retain ${label} literally`, async () => {
+    const previousPath = process.env.PATH;
+    const previousDirectory = process.env.ORGWRIGHT_FIXTURE_DIR;
+    const previousPercent = process.env.ORGWRIGHT_FIXTURE_PERCENT;
+    const args = ['data', 'query', '-o', 'fixture-quoting', '-q', 'SELECT "Name", Id FROM User', value];
+    release('fixture-quoting', { echoArgs: true });
+    try {
+      process.env.PATH = `${bin}${path.delimiter}${previousPath || ''}`;
+      process.env.ORGWRIGHT_FIXTURE_DIR = root;
+      process.env.ORGWRIGHT_FIXTURE_PERCENT = 'must-not-expand';
+      assert.deepEqual(await executeSfCommand(args), args);
+    } finally {
+      for (const [key, value] of Object.entries({ PATH: previousPath, ORGWRIGHT_FIXTURE_DIR: previousDirectory, ORGWRIGHT_FIXTURE_PERCENT: previousPercent })) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
     }
-  }
-});
+  });
+}
 
 for (const endpoint of ['objects', 'users']) {
   test(`${endpoint}: HTTP and WebSocket stay responsive until CLI output arrives`, async () => {
