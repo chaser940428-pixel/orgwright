@@ -4,7 +4,8 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as path from 'path';
 import * as fs from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
+import { isValidAlias, safeJoin, runSfSync } from './lib/validators';
 
 // Orgwright Monorepo package imports
 import { resolveTestSteps } from '@orgwright/resolver';
@@ -90,12 +91,28 @@ const allowedOrigins = new Set(
     .map((o) => o.trim())
     .filter(Boolean)
 );
-const isAllowedOrigin = (origin?: string) => !origin || allowedOrigins.has(origin);
+const isAllowedOrigin = (origin?: string) =>
+  !origin ||
+  allowedOrigins.has(origin);
+
+// Browsers omit the Origin header on "simple" cross-site GETs (<img>, no-cors fetch), so a missing
+// Origin alone does not prove the caller is a local script. Modern browsers always send
+// Sec-Fetch-Site; when there is no Origin but Sec-Fetch-Site says the request came from another
+// site, reject it. Non-browser callers (runner, curl, scripts) send neither header and still work,
+// and the Studio UI (same-origin through the Vite proxy) sends an allowed Origin or
+// Sec-Fetch-Site: same-origin.
+const isAllowedRequest = (origin: string | undefined, fetchSite: string | undefined) => {
+  if (origin) return isAllowedOrigin(origin);
+  return !fetchSite || fetchSite === 'same-origin' || fetchSite === 'none';
+};
 
 app.use(cors({ origin: (origin, cb) => cb(null, isAllowedOrigin(origin)) }));
 app.use((req, res, next) => {
-  if (!isAllowedOrigin(req.headers.origin)) {
-    return res.status(403).json({ error: `Origin ${req.headers.origin} is not allowed to use the Orgwright Studio API` });
+  const fetchSite = req.headers['sec-fetch-site'] as string | undefined;
+  if (!isAllowedRequest(req.headers.origin, fetchSite)) {
+    return res.status(403).json({
+      error: `Request from ${req.headers.origin || fetchSite} is not allowed to use the Orgwright Studio API`
+    });
   }
   next();
 });
@@ -105,7 +122,8 @@ const server = createServer(app);
 const wss = new WebSocketServer({
   server,
   path: '/ws',
-  verifyClient: ({ origin }: { origin?: string }) => isAllowedOrigin(origin)
+  verifyClient: ({ origin, req }: { origin?: string; req: import('http').IncomingMessage }) =>
+    isAllowedRequest(origin, req.headers['sec-fetch-site'] as string | undefined)
 });
 
 const clients = new Set<WebSocket>();
@@ -199,11 +217,12 @@ app.post('/api/org/open', (req, res) => {
 app.post('/api/org/logout', (req, res) => {
   const { alias } = req.body;
   if (!alias) return res.status(400).json({ error: 'alias is required' });
+  if (!isValidAlias(alias)) return res.status(400).json({ error: 'Invalid alias' });
   const result = logoutOrg(alias);
   // Clear any cached objects/users for this org
   try {
-    const objCache = path.join(cacheDir, `objects-${alias}.json`);
-    const usrCache = path.join(cacheDir, `users-${alias}.json`);
+    const objCache = safeJoin(cacheDir, `objects-${alias}.json`);
+    const usrCache = safeJoin(cacheDir, `users-${alias}.json`);
     if (fs.existsSync(objCache)) fs.unlinkSync(objCache);
     if (fs.existsSync(usrCache)) fs.unlinkSync(usrCache);
   } catch {}
@@ -216,7 +235,9 @@ app.post('/api/org/login/web', (req, res) => {
   if (!alias) return res.status(400).json({ error: 'alias is required' });
   const targetUrl = instanceUrl || 'https://test.salesforce.com';
 
-  const job = startWebAuth(
+  let job;
+  try {
+  job = startWebAuth(
     alias,
     targetUrl,
     { browser, setDefault },
@@ -232,6 +253,9 @@ app.post('/api/org/login/web', (req, res) => {
       });
     }
   );
+  } catch (err: any) {
+    return res.status(400).json({ success: false, error: err.message || 'Invalid login parameters' });
+  }
 
   res.json({
     success: true,
@@ -293,8 +317,9 @@ app.post('/api/org/login/sfdx-url', (req, res) => {
 // 4. Get all SObjects from the connected org (Standard & Custom)
 app.get('/api/org/objects', (req, res) => {
   const targetOrg = (req.query.alias as string) || 'sandboxOrg';
+  if (!isValidAlias(targetOrg)) return res.status(400).json({ success: false, error: 'Invalid alias' });
   const forceRefresh = req.query.refresh === 'true';
-  const orgCacheFile = path.join(cacheDir, `objects-${targetOrg}.json`);
+  const orgCacheFile = safeJoin(cacheDir, `objects-${targetOrg}.json`);
 
   if (!forceRefresh && fs.existsSync(orgCacheFile)) {
     try {
@@ -306,10 +331,7 @@ app.get('/api/org/objects', (req, res) => {
   }
 
   try {
-    const raw = execSync(`sf sobject list -o "${targetOrg}" --json`, {
-      timeout: 30000,
-      encoding: 'utf-8'
-    });
+    const raw = runSfSync(['sobject', 'list', '-o', targetOrg, '--json'], { timeout: 30000 });
     const parsed = JSON.parse(raw);
     const allObjects: string[] = parsed.result || [];
 
@@ -358,8 +380,9 @@ app.get('/api/org/objects', (req, res) => {
 // 4.5 Get Active Users for Persona Testing (with caching)
 app.get('/api/org/users', (req, res) => {
   const targetOrg = (req.query.alias as string) || 'sandboxOrg';
+  if (!isValidAlias(targetOrg)) return res.status(400).json({ success: false, error: 'Invalid alias' });
   const forceRefresh = req.query.refresh === 'true';
-  const orgUsersCacheFile = path.join(cacheDir, `users-${targetOrg}.json`);
+  const orgUsersCacheFile = safeJoin(cacheDir, `users-${targetOrg}.json`);
 
   if (!forceRefresh && fs.existsSync(orgUsersCacheFile)) {
     try {
@@ -369,9 +392,13 @@ app.get('/api/org/users', (req, res) => {
   }
 
   try {
-    const raw = execSync(
-      `sf data query -o "${targetOrg}" -q "SELECT Id, Name, Username, Email, Profile.Name, UserRole.Name, IsActive FROM User WHERE IsActive = true ORDER BY Name LIMIT 60" --json`,
-      { timeout: 30000, encoding: 'utf-8', shell: true as unknown as string }
+    const raw = runSfSync(
+      [
+        'data', 'query', '-o', targetOrg, '-q',
+        'SELECT Id, Name, Username, Email, Profile.Name, UserRole.Name, IsActive FROM User WHERE IsActive = true ORDER BY Name LIMIT 60',
+        '--json'
+      ],
+      { timeout: 30000 }
     );
     const parsed = JSON.parse(raw);
     const records = parsed.result?.records || [];
@@ -934,14 +961,14 @@ function createJiraTestProofDoc(reportData: any): string {
     if (!fs.existsSync(resultsDir)) {
       fs.mkdirSync(resultsDir, { recursive: true });
     }
-    const testId = reportData.testId || 'TC_RUN';
+    const testId = isValidTestId(reportData.testId) ? reportData.testId : 'TC_RUN';
     const jsonTmpPath = path.join(resultsDir, `${testId}-evidence-input.json`);
     const outDocxPath = path.join(resultsDir, `${testId}-Jira-Test-Proof.docx`);
 
     fs.writeFileSync(jsonTmpPath, JSON.stringify(reportData, null, 2), 'utf-8');
 
     const scriptPath = path.resolve(rootPlaywrightDir, 'orgwright', 'apps', 'studio', 'server', 'generate_jira_proof.py');
-    execSync(`python "${scriptPath}" "${jsonTmpPath}" "${outDocxPath}"`, {
+    execFileSync('python', [scriptPath, jsonTmpPath, outDocxPath], {
       timeout: 15000,
       encoding: 'utf-8',
       stdio: 'pipe'
@@ -1171,7 +1198,7 @@ app.post(['/api/execute/stop', '/api/stop'], (req, res) => {
     });
     broadcast({
       type: 'log',
-      line: '\n[Orgwright Studio] ⏹ Automation execution stopped by user.\n'
+      line: '\n[Orgwright Studio] â¹ Automation execution stopped by user.\n'
     });
     res.json({ success: true, stopped });
   } catch (err: any) {
@@ -1195,7 +1222,7 @@ app.post('/api/execute/pause', (req, res) => {
     });
     broadcast({
       type: 'log',
-      line: '\n[Orgwright Studio] ⏸ Automation execution paused by user. Live screen is interactive.\n'
+      line: '\n[Orgwright Studio] â¸ Automation execution paused by user. Live screen is interactive.\n'
     });
     res.json({ success: true, isPaused: true });
   } catch (err: any) {
@@ -1239,7 +1266,7 @@ app.post('/api/execute/resume', (req, res) => {
     });
     broadcast({
       type: 'log',
-      line: '\n[Orgwright Studio] ▶ Automation execution resumed by user.\n'
+      line: '\n[Orgwright Studio] â–¶ Automation execution resumed by user.\n'
     });
     res.json({ success: true, isPaused: false });
   } catch (err: any) {
