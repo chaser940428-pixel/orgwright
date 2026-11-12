@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import * as path from 'path';
+import { execFile } from 'child_process';
 import { readHistory, summarizeHistory } from '../lib/history';
 import { ROOT_DIR, isValidTestId } from '../lib/paths';
 import { readDefinitions, readLastNightly, readNightlyConfig, saveNightlyConfig } from '../lib/suite-runner';
@@ -19,9 +20,10 @@ export function registerSuiteRoutes(app: Express): void {
     res.json({ success: true, tags: [...counts.entries()].map(([tag, count]) => ({ tag, count })).sort((a, b) => a.tag.localeCompare(b.tag)) });
   });
 
-  app.get('/api/nightly', (_req, res) => {
+  app.get('/api/nightly', async (_req, res) => {
     const cfg = readNightlyConfig();
-    res.json({ success: true, config: { ...cfg, teamsWebhook: cfg.teamsWebhook ? '(configured)' : '' }, last: readLastNightly(), commands: nightlyCommands(cfg.time) });
+    const schedule = await queryNightlyTask();
+    res.json({ success: true, config: { ...cfg, teamsWebhook: cfg.teamsWebhook ? '(configured)' : '' }, last: readLastNightly(), commands: nightlyCommands(cfg.time), schedule });
   });
 
   app.post('/api/nightly', (req, res) => {
@@ -50,4 +52,26 @@ function nightlyCommands(time: string) {
     schedule: `schtasks /Create /F /SC DAILY /ST ${time} /TN "Orgwright Nightly Regression" /TR "\\"${bat}\\""`,
     remove: 'schtasks /Delete /F /TN "Orgwright Nightly Regression"'
   };
+}
+
+const TASK_NAME = 'Orgwright Nightly Regression';
+
+export interface NightlySchedule {
+  supported: boolean;
+  registered: boolean;
+  nextRun?: string;
+  status?: string;
+}
+
+/** Asks Windows Task Scheduler whether the nightly task is registered (read-only query). */
+function queryNightlyTask(): Promise<NightlySchedule> {
+  if (process.platform !== 'win32') return Promise.resolve({ supported: false, registered: false });
+  return new Promise((resolve) => {
+    execFile('schtasks', ['/Query', '/TN', TASK_NAME, '/FO', 'CSV', '/NH'], { timeout: 5000, windowsHide: true }, (err, stdout) => {
+      if (err || !stdout) return resolve({ supported: true, registered: false });
+      // "TaskName","Next Run Time","Status"
+      const cols = String(stdout).trim().split(/\r?\n/)[0].split('","').map((c) => c.replace(/^"|"$/g, '').trim());
+      resolve({ supported: true, registered: true, nextRun: cols[1], status: cols[2] });
+    });
+  });
 }

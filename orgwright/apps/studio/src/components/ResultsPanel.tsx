@@ -1,6 +1,6 @@
-import React from 'react';
-import { CheckCircle2, AlertCircle, Terminal, RefreshCw, Check, ShieldCheck, Filter, Search, MousePointerClick, ChevronDown, FileText, Activity, Flame, Zap, Database } from 'lucide-react';
-import type { FullExecutionLogReport } from '../types/results';
+import React, { useEffect } from 'react';
+import { CheckCircle2, AlertCircle, Pencil, Play, Terminal, RefreshCw, Check, ShieldCheck, Filter, Search, MousePointerClick, ChevronDown, FileText, Activity, Flame, Zap, Database } from 'lucide-react';
+import type { FailureAnalysis, FullExecutionLogReport } from '../types/results';
 
 type LogCategory = 'all' | 'clicks' | 'automations' | 'validations' | 'errors';
 
@@ -18,8 +18,14 @@ export interface ResultsPanelProps {
   setZoomedScreenshot: (url: string | null) => void;
   isTesterMode: boolean;
   selectedOrg: string;
+  orgEnvLabel: string;
   selectedPersona: any;
   testId: string;
+  failureAnalysis?: FailureAnalysis | null;
+  /** Focus step N in the editor */
+  onEditStep?: (stepIndex: number) => void;
+  onRunAgain?: () => void;
+  isRunning?: boolean;
 }
 
 /** Results tab: per-step outcome, screenshots, failure reasons and Salesforce backend activity. */
@@ -38,22 +44,47 @@ export function ResultsPanel(props: ResultsPanelProps) {
     setZoomedScreenshot,
     isTesterMode,
     selectedOrg,
+    orgEnvLabel,
     selectedPersona,
     testId
   } = props;
+
+  const failedStep = executionLogReport?.steps.find((st) => st.status === 'failed') || null;
+  const isStale = Boolean(executionLogReport && executionLogReport.testId !== testId);
+
+  // Open the failed step when a new report arrives
+  useEffect(() => {
+    if (failedStep) setExpandedStepIndex(failedStep.stepIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [executionLogReport]);
+
+  const verdict = (() => {
+    if (!executionLogReport) return '';
+    const total = executionLogReport.steps.length;
+    if (executionLogReport.status === 'passed') {
+      return `Passed all ${total} step${total === 1 ? '' : 's'} in ${(executionLogReport.totalDurationMs / 1000).toFixed(1)}s.`;
+    }
+    if (failedStep) {
+      const why = failedStep.explanation || failedStep.error || props.failureAnalysis?.humanExplanation || '';
+      return `Failed at step ${failedStep.stepIndex} of ${total}: ${failedStep.stepText}${why ? ` — ${why.split(String.fromCharCode(10))[0]}` : ''}`;
+    }
+    return props.failureAnalysis?.humanExplanation ? `Failed: ${props.failureAnalysis.humanExplanation}` : 'Failed before any step finished.';
+  })();
+  const stampTime = executionLogReport?.finishedAt || executionLogReport?.startedAt;
+  const reportPersona = (executionLogReport as any)?.persona?.name || selectedPersona?.name;
 
   return (
 
                 <div className="flex-1 flex flex-col space-y-4 overflow-y-auto pr-1">
                   {!executionLogReport ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-white border border-slate-200 rounded-lg space-y-4 shadow-xs">
-                      <div className="h-16 w-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center">
-                        <FileText className="h-8 w-8 text-amber-600 stroke-1" />
+                    <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-white border border-border rounded-lg space-y-4 shadow-xs">
+                      <div className="h-16 w-16 rounded-2xl bg-warning-soft border border-amber-200 flex items-center justify-center">
+                        <FileText className="h-8 w-8 text-warning stroke-1" />
                       </div>
                       <div className="space-y-1 max-w-md">
-                        <h3 className="text-base font-semibold text-slate-900">No Execution Logs Recorded Yet</h3>
-                        <p className="text-xs text-slate-500">
-                          Click <strong>"▶ Run Live"</strong> to execute your test steps. The platform will automatically capture every browser click, input, timing, failure reasons, and trace all backend Salesforce triggers, record-triggered flows, and validation rules that fire after each click!
+                        <h3 className="text-base font-semibold text-slate-900">No results yet</h3>
+                        <p className="text-xs text-slate-600">
+                          Press <strong>Run test</strong>. Each step's outcome, screenshot and failure reason appear here, with the Salesforce activity Orgwright could capture.
                         </p>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -66,24 +97,74 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                 if (data.report) setExecutionLogReport(data.report);
                               });
                           }}
-                          className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer"
+                          className="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-border text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer"
                         >
-                          <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                          <RefreshCw className="h-3.5 w-3.5 text-muted" />
                           <span>Check Recent Execution Logs</span>
                         </button>
                       </div>
                     </div>
                   ) : (
                     <>
+                      {/* One-sentence verdict + run stamp */}
+                      <div
+                        className={`rounded-lg border p-4 shadow-xs ${
+                          executionLogReport.status === 'passed' ? 'border-emerald-200 bg-success-soft' : 'border-rose-200 bg-danger-soft'
+                        }`}
+                        role="status"
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="flex min-w-0 items-start gap-2">
+                            {executionLogReport.status === 'passed' ? (
+                              <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-success" aria-hidden="true" />
+                            ) : (
+                              <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-danger" aria-hidden="true" />
+                            )}
+                            <div className="min-w-0">
+                              <p className={`text-sm font-semibold ${executionLogReport.status === 'passed' ? 'text-emerald-900' : 'text-rose-900'}`}>{verdict}</p>
+                              <p className="mt-1 text-xs text-slate-700">
+                                {isStale ? `Previous run (${executionLogReport.testId})` : 'Last run'}
+                                {stampTime ? ` · ${new Date(stampTime).toLocaleString()}` : ''}
+                                {` · ${selectedOrg ? `${selectedOrg} (${orgEnvLabel})` : orgEnvLabel}`}
+                                {reportPersona ? ` · run as ${reportPersona}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          {!isStale && (
+                            <div className="flex flex-shrink-0 items-center gap-2">
+                              {failedStep && props.onEditStep && (
+                                <button
+                                  type="button"
+                                  onClick={() => props.onEditStep!(failedStep.stepIndex)}
+                                  className="flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-800 hover:bg-slate-50 cursor-pointer"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" aria-hidden="true" /> Edit step {failedStep.stepIndex}
+                                </button>
+                              )}
+                              {props.onRunAgain && (
+                                <button
+                                  type="button"
+                                  onClick={props.onRunAgain}
+                                  disabled={props.isRunning}
+                                  className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50 cursor-pointer"
+                                >
+                                  <Play className="h-3.5 w-3.5" aria-hidden="true" /> Run again
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                       {/* Top Execution & Salesforce Summary Card */}
-                      <div className="bg-white border border-slate-200 rounded-lg p-4 shadow-xs space-y-3">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                      <div className="bg-white border border-border rounded-lg p-4 shadow-xs space-y-3">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-border">
                           <div className="flex items-center space-x-3">
                             <div
                               className={`h-9 w-9 rounded-lg flex items-center justify-center ${
                                 executionLogReport.status === 'passed'
-                                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-600'
-                                  : 'bg-rose-50 border border-rose-200 text-rose-600'
+                                  ? 'bg-success-soft border border-emerald-200 text-success'
+                                  : 'bg-danger-soft border border-rose-200 text-danger'
                               }`}
                             >
                               {executionLogReport.status === 'passed' ? (
@@ -98,20 +179,20 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                   {executionLogReport.testId} results
                                 </h3>
                                 <span
-                                  className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase ${
+                                  className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
                                     executionLogReport.status === 'passed'
-                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                      : 'bg-rose-50 text-rose-700 border border-rose-200'
+                                      ? 'bg-success-soft text-success border border-emerald-200'
+                                      : 'bg-danger-soft text-danger border border-rose-200'
                                   }`}
                                 >
                                   {executionLogReport.status}
                                 </span>
-                                <span className="text-xs text-slate-500 font-mono">
+                                <span className="text-xs text-muted font-mono">
                                   {(executionLogReport.totalDurationMs / 1000).toFixed(1)}s total
                                 </span>
                               </div>
-                              <p className="text-xs text-slate-500">
-                                {executionLogReport.steps.length} frontend steps executed • {selectedOrg} (Sandbox) •{' '}
+                              <p className="text-xs text-muted">
+                                {executionLogReport.steps.length} frontend steps executed • {selectedOrg ? `${selectedOrg} (${orgEnvLabel})` : orgEnvLabel} •{' '}
                                 {selectedPersona?.name || 'Standard User'}
                               </p>
                             </div>
@@ -122,7 +203,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                               <button
                                 type="button"
                                 onClick={() => setShowRawApexLogModal(true)}
-                                className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer shadow-2xs"
+                                className="px-3 py-1.5 rounded-lg bg-warning-soft hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-medium flex items-center space-x-1.5 transition cursor-pointer shadow-2xs"
                               >
                                 <FileText className="h-3.5 w-3.5" />
                                 <span>Raw Apex Debug Log ({executionLogReport.salesforceLogs.length})</span>
@@ -138,7 +219,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                     if (d.report) setExecutionLogReport(d.report);
                                   });
                               }}
-                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 text-xs transition cursor-pointer"
+                              className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-border text-xs transition cursor-pointer"
                               title="Refresh logs from org"
                             >
                               <RefreshCw className="h-3.5 w-3.5" />
@@ -148,56 +229,56 @@ export function ResultsPanel(props: ResultsPanelProps) {
 
                         {/* Backend Telemetry Metric Cards */}
                         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
-                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="text-[11px] text-slate-500 uppercase tracking-wider block font-semibold">Steps Run</span>
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-border">
+                            <span className="text-xs text-muted uppercase tracking-wider block font-semibold">Steps Run</span>
                             <div className="flex items-center space-x-1.5 mt-0.5">
-                              <MousePointerClick className="h-3.5 w-3.5 text-blue-600" />
+                              <MousePointerClick className="h-3.5 w-3.5 text-primary" />
                               <span className="text-sm font-bold text-slate-900">{executionLogReport.steps.length}</span>
-                              <span className="text-[11px] text-slate-500 font-normal">Actions</span>
+                              <span className="text-xs text-muted font-normal">Actions</span>
                             </div>
                           </div>
 
-                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="text-[11px] text-amber-700 uppercase tracking-wider block font-semibold">Apex Triggers</span>
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-border">
+                            <span className="text-xs text-warning uppercase tracking-wider block font-semibold">Apex Triggers</span>
                             <div className="flex items-center space-x-1.5 mt-0.5">
-                              <Flame className="h-3.5 w-3.5 text-amber-600" />
+                              <Flame className="h-3.5 w-3.5 text-warning" />
                               <span className="text-sm font-bold text-slate-900">
                                 {executionLogReport.backendAutomationSummary?.totalTriggersFired ?? 0}
                               </span>
-                              <span className="text-[11px] text-slate-500 font-normal">Fired</span>
+                              <span className="text-xs text-muted font-normal">Fired</span>
                             </div>
                           </div>
 
-                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="text-[11px] text-indigo-700 uppercase tracking-wider block font-semibold">Record Flows</span>
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-border">
+                            <span className="text-xs text-indigo-700 uppercase tracking-wider block font-semibold">Record Flows</span>
                             <div className="flex items-center space-x-1.5 mt-0.5">
                               <Zap className="h-3.5 w-3.5 text-indigo-600" />
                               <span className="text-sm font-bold text-slate-900">
                                 {executionLogReport.backendAutomationSummary?.totalFlowsExecuted ?? 0}
                               </span>
-                              <span className="text-[11px] text-slate-500 font-normal">Ran</span>
+                              <span className="text-xs text-muted font-normal">Ran</span>
                             </div>
                           </div>
 
-                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="text-[11px] text-teal-700 uppercase tracking-wider block font-semibold">Validations</span>
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-border">
+                            <span className="text-xs text-teal-700 uppercase tracking-wider block font-semibold">Validations</span>
                             <div className="flex items-center space-x-1.5 mt-0.5">
                               <ShieldCheck className="h-3.5 w-3.5 text-teal-600" />
                               <span className="text-sm font-bold text-slate-900">
                                 {executionLogReport.backendAutomationSummary?.totalValidationsChecked ?? 0}
                               </span>
-                              <span className="text-[11px] text-slate-500 font-normal">Checked</span>
+                              <span className="text-xs text-muted font-normal">Checked</span>
                             </div>
                           </div>
 
-                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 col-span-2 sm:col-span-1">
-                            <span className="text-[11px] text-purple-700 uppercase tracking-wider block font-semibold">DML Operations</span>
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-border col-span-2 sm:col-span-1">
+                            <span className="text-xs text-purple-700 uppercase tracking-wider block font-semibold">DML Operations</span>
                             <div className="flex items-center space-x-1.5 mt-0.5">
                               <Database className="h-3.5 w-3.5 text-purple-600" />
                               <span className="text-sm font-bold text-slate-900">
                                 {executionLogReport.backendAutomationSummary?.totalDmlRecords ?? 0}
                               </span>
-                              <span className="text-[11px] text-slate-500 font-normal">Records</span>
+                              <span className="text-xs text-muted font-normal">Records</span>
                             </div>
                           </div>
                         </div>
@@ -213,8 +294,8 @@ export function ResultsPanel(props: ResultsPanelProps) {
                               onClick={() => setLogCategoryFilter(cat)}
                               className={`px-3 py-1 rounded-lg capitalize transition cursor-pointer ${
                                 logCategoryFilter === cat
-                                  ? 'bg-blue-600 text-white font-medium shadow-2xs'
-                                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200'
+                                  ? 'bg-primary text-white font-medium shadow-2xs'
+                                  : 'bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-border'
                               }`}
                             >
                               {cat === 'all'
@@ -237,24 +318,24 @@ export function ResultsPanel(props: ResultsPanelProps) {
                             placeholder="Filter steps, fields, triggers..."
                             value={logSearchQuery}
                             onChange={(e) => setLogSearchQuery(e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-3 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 shadow-2xs"
+                            className="w-full bg-white border border-border rounded-lg pl-8 pr-3 py-1 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary shadow-2xs"
                           />
                         </div>
                       </div>
 
                       {executionLogReport.dataRows && (
-                        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-[13px]">
+                        <div className="rounded-md border border-border bg-white px-3 py-2 text-[13px]">
                           <div className="font-medium text-slate-900">
                             Data rows: {executionLogReport.dataRows.passed} of {executionLogReport.dataRows.total} passed
                           </div>
                           <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs">
                             {executionLogReport.dataRows.results.map((r) => (
-                              <li key={r.row} className={r.status === 'passed' ? 'text-emerald-700' : 'text-rose-700'} title={r.error || ''}>
+                              <li key={r.row} className={r.status === 'passed' ? 'text-success' : 'text-danger'} title={r.error || ''}>
                                 Row {r.row}: {r.status}
                               </li>
                             ))}
                           </ul>
-                          <div className="mt-1 text-xs text-slate-500">Steps below are from {executionLogReport.dataRows.passed === executionLogReport.dataRows.total ? 'row 1' : 'the first failing row'}.</div>
+                          <div className="mt-1 text-xs text-muted">Steps below are from {executionLogReport.dataRows.passed === executionLogReport.dataRows.total ? 'row 1' : 'the first failing row'}.</div>
                         </div>
                       )}
 
@@ -294,10 +375,10 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                   st.status === 'failed'
                                     ? 'bg-white border-2 border-rose-300 shadow-xs'
                                     : st.status === 'skipped'
-                                    ? 'bg-slate-50 border border-dashed border-slate-200 opacity-70'
+                                    ? 'bg-slate-50 border border-dashed border-border opacity-70'
                                     : hasBackendActivity
                                     ? 'bg-white border border-blue-200 hover:border-blue-300 shadow-xs'
-                                    : 'bg-white border border-slate-200 hover:border-slate-300 shadow-xs'
+                                    : 'bg-white border border-border hover:border-slate-300 shadow-xs'
                                 }`}
                               >
                                 {/* Step Card Header */}
@@ -309,16 +390,16 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                     <div
                                       className={`h-7 w-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 ${
                                         st.status === 'failed'
-                                          ? 'bg-rose-600 text-white'
+                                          ? 'bg-danger text-white'
                                           : st.status === 'skipped'
-                                          ? 'bg-slate-100 text-slate-400 border border-slate-200'
+                                          ? 'bg-slate-100 text-slate-400 border border-border'
                                           : st.actionType === 'click'
-                                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                          ? 'bg-primary-soft text-primary-hover border border-blue-200'
                                           : st.actionType === 'fill'
-                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                          ? 'bg-success-soft text-success border border-emerald-200'
                                           : st.actionType === 'navigate'
                                           ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                          : 'bg-slate-100 text-slate-600 border border-border'
                                       }`}
                                     >
                                       {st.stepIndex}
@@ -330,26 +411,26 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                           {st.stepText}
                                         </span>
                                         {st.elementTarget && (
-                                          <span className="px-1.5 py-0.2 rounded text-[11px] bg-slate-100 text-slate-700 border border-slate-200 font-mono truncate max-w-[160px]">
+                                          <span className="px-1.5 py-0.2 rounded text-xs bg-slate-100 text-slate-700 border border-border font-mono truncate max-w-[160px]">
                                             {st.elementTarget}
                                           </span>
                                         )}
                                         {st.valueTyped && (
-                                          <span className="px-1.5 py-0.2 rounded text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+                                          <span className="px-1.5 py-0.2 rounded text-xs bg-success-soft text-success border border-emerald-200 font-mono">
                                             Typed: "{st.valueTyped}"
                                           </span>
                                         )}
                                       </div>
 
                                       {/* Subtitle indicator */}
-                                      <div className="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5">
+                                      <div className="flex items-center space-x-2 text-xs text-muted mt-0.5">
                                         <span className="capitalize">{st.actionType} action</span>
                                         <span>•</span>
-                                        <span className="font-mono text-slate-500">{st.durationMs}ms</span>
+                                        <span className="font-mono text-muted">{st.durationMs}ms</span>
                                         {hasBackendActivity && (
                                           <>
                                             <span>•</span>
-                                            <span className="text-amber-700 font-semibold">
+                                            <span className="text-warning font-semibold">
                                               Backend Automation Fired
                                             </span>
                                           </>
@@ -363,7 +444,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                       <img
                                         src={st.screenshotUrl}
                                         alt={`Screen after step ${st.stepIndex}`}
-                                        className="hidden sm:block h-9 w-14 object-cover object-top rounded border border-slate-200 hover:ring-2 hover:ring-blue-300"
+                                        className="hidden sm:block h-9 w-14 object-cover object-top rounded border border-border hover:ring-2 hover:ring-blue-300"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setZoomedScreenshot(st.screenshotUrl || null);
@@ -372,17 +453,17 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                       />
                                     )}
                                     {st.status === 'skipped' ? (
-                                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-muted border border-border">
                                         Not run
                                       </span>
                                     ) : st.status === 'passed' ? (
-                                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
-                                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-success-soft text-success border border-emerald-200 flex items-center space-x-1">
+                                        <CheckCircle2 className="h-3 w-3 text-success" />
                                         <span>Passed</span>
                                       </span>
                                     ) : (
-                                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 flex items-center space-x-1">
-                                        <AlertCircle className="h-3 w-3 text-rose-600" />
+                                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-danger-soft text-danger border border-rose-200 flex items-center space-x-1">
+                                        <AlertCircle className="h-3 w-3 text-danger" />
                                         <span>Failed</span>
                                       </span>
                                     )}
@@ -398,7 +479,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                 {/* Step Failure Box if Failed */}
                                 {st.status === 'failed' && (
                                   <div className="px-4 pb-3">
-                                    <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 space-y-1.5">
+                                    <div className="p-3 rounded-lg bg-danger-soft border border-rose-200 space-y-1.5">
                                       <div className="flex items-center space-x-1.5 text-rose-800 font-semibold text-xs">
                                         <AlertCircle className="h-4 w-4 flex-shrink-0" />
                                         <span>Why this step failed</span>
@@ -409,10 +490,10 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                             {st.error || 'Assertion or locator timeout exceeded.'}
                                           </p>
                                           {st.explanation && st.explanation !== st.error && (
-                                            <p className="text-[11px] text-rose-800/90 leading-relaxed">{st.explanation}</p>
+                                            <p className="text-xs text-rose-800/90 leading-relaxed">{st.explanation}</p>
                                           )}
                                           {st.recommendation && (
-                                            <p className="text-[11px] text-slate-700 leading-relaxed">
+                                            <p className="text-xs text-slate-700 leading-relaxed">
                                               <span className="font-semibold">Try this: </span>
                                               {st.recommendation}
                                             </p>
@@ -432,7 +513,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                         <button
                                           type="button"
                                           onClick={() => setShowFailureModal(true)}
-                                          className="text-[11px] text-rose-700 underline hover:text-rose-900 font-medium cursor-pointer"
+                                          className="text-xs text-danger underline hover:text-rose-900 font-medium cursor-pointer"
                                         >
                                           {isTesterMode ? 'More details' : 'View Failure Screen & Full RCA Modal'}
                                         </button>
@@ -443,33 +524,33 @@ export function ResultsPanel(props: ResultsPanelProps) {
 
                                 {/* Expanded Detail Drawer: Browser Action + Salesforce Backend Activity */}
                                 {isExpanded && (
-                                  <div className="px-4 pb-4 pt-2 border-t border-slate-200 space-y-3 bg-slate-50/60">
+                                  <div className="px-4 pb-4 pt-2 border-t border-border space-y-3 bg-slate-50/60">
                                     {st.screenshotUrl && st.status !== 'failed' && (
                                       <div className="space-y-1.5 text-xs">
-                                        <span className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">Screen after this step</span>
+                                        <span className="text-xs text-muted uppercase font-bold tracking-wider">Screen after this step</span>
                                         <img
                                           src={st.screenshotUrl}
                                           alt={`Screen after step ${st.stepIndex}`}
-                                          className="w-full max-w-xl rounded-lg border border-slate-200 cursor-zoom-in"
+                                          className="w-full max-w-xl rounded-lg border border-border cursor-zoom-in"
                                           onClick={() => setZoomedScreenshot(st.screenshotUrl || null)}
                                         />
                                       </div>
                                     )}
                                     {/* Sub-section 1: Frontend Browser Action */}
                                     <div className="space-y-1.5 text-xs">
-                                      <span className="text-[11px] text-slate-500 uppercase font-bold tracking-wider">
+                                      <span className="text-xs text-muted uppercase font-bold tracking-wider">
                                         Frontend Browser Execution
                                       </span>
-                                      <div className="p-2.5 rounded-lg bg-white border border-slate-200 font-mono text-[11px] space-y-1 text-slate-700">
+                                      <div className="p-2.5 rounded-lg bg-white border border-border font-mono text-xs space-y-1 text-slate-700">
                                         <div>
                                           <span className="text-slate-400">Action:</span>{' '}
-                                          <span className="text-blue-700 font-semibold">{st.actionType.toUpperCase()}</span> on element{' '}
+                                          <span className="text-primary-hover font-semibold">{st.actionType.toUpperCase()}</span> on element{' '}
                                           <span className="text-slate-900 font-semibold">"{st.elementTarget || 'target'}"</span>
                                         </div>
                                         {st.valueTyped && (
                                           <div>
                                             <span className="text-slate-400">Value Filled:</span>{' '}
-                                            <span className="text-emerald-700 font-semibold">"{st.valueTyped}"</span>
+                                            <span className="text-success font-semibold">"{st.valueTyped}"</span>
                                           </div>
                                         )}
                                         <div>
@@ -489,15 +570,15 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                     {/* Sub-section 2: Salesforce Backend Automations Fired */}
                                     {hasBackendActivity ? (
                                       <div className="space-y-2 text-xs">
-                                        <div className="flex items-center space-x-1.5 text-amber-800 font-semibold text-[11px] uppercase tracking-wider">
-                                          <Flame className="h-3.5 w-3.5 text-amber-600" />
+                                        <div className="flex items-center space-x-1.5 text-amber-800 font-semibold text-xs uppercase tracking-wider">
+                                          <Flame className="h-3.5 w-3.5 text-warning" />
                                           <span>What Happened in Salesforce (Backend Automations Fired)</span>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px]">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                                           {/* Triggers */}
                                           {st.triggersFired.length > 0 && (
-                                            <div className="p-2.5 rounded-lg bg-amber-50/70 border border-amber-200 space-y-1">
+                                            <div className="p-2.5 rounded-lg bg-warning-soft/70 border border-amber-200 space-y-1">
                                               <span className="text-amber-900 font-bold block">
                                                 Apex Triggers Executed ({st.triggersFired.length})
                                               </span>
@@ -506,7 +587,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                                   <span>
                                                     <strong>{trig.name}</strong> on {trig.sObject}
                                                   </span>
-                                                  <span className="text-amber-800 text-[11px] font-semibold">{trig.events} ({trig.durationMs || 30}ms)</span>
+                                                  <span className="text-amber-800 text-xs font-semibold">{trig.events} ({trig.durationMs || 30}ms)</span>
                                                 </div>
                                               ))}
                                             </div>
@@ -522,10 +603,10 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                                 <div key={fIdx} className="text-slate-700 font-mono">
                                                   <div className="flex items-center justify-between">
                                                     <strong>{fl.flowName}</strong>
-                                                    <span className="text-emerald-700 text-[11px] font-semibold">{fl.status}</span>
+                                                    <span className="text-success text-xs font-semibold">{fl.status}</span>
                                                   </div>
                                                   {fl.elementsTraversed && (
-                                                    <div className="text-[11px] text-slate-500 truncate">
+                                                    <div className="text-xs text-muted truncate">
                                                       Elements: {fl.elementsTraversed.join(' → ')}
                                                     </div>
                                                   )}
@@ -544,8 +625,8 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                                 <div key={vIdx} className="text-slate-700 font-mono flex items-center justify-between">
                                                   <span>{val.ruleName}</span>
                                                   <span
-                                                    className={`text-[11px] font-bold ${
-                                                      val.result === 'PASSED' ? 'text-emerald-700' : 'text-rose-700'
+                                                    className={`text-xs font-bold ${
+                                                      val.result === 'PASSED' ? 'text-success' : 'text-danger'
                                                     }`}
                                                   >
                                                     {val.result}
@@ -566,7 +647,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                                   <span>
                                                     {d.operation} {d.rowCount} record(s)
                                                   </span>
-                                                  <span className="text-purple-700 text-[11px] font-semibold">{d.sObject}</span>
+                                                  <span className="text-purple-700 text-xs font-semibold">{d.sObject}</span>
                                                 </div>
                                               ))}
                                             </div>
@@ -575,7 +656,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
 
                                         {/* Governor Limits */}
                                         {st.limitsConsumed && (
-                                          <div className="p-2 rounded-lg bg-white border border-slate-200 text-[11px] font-mono text-slate-500 flex items-center justify-between">
+                                          <div className="p-2 rounded-lg bg-white border border-border text-xs font-mono text-muted flex items-center justify-between">
                                             <span>SOQL Queries: <strong className="text-slate-800">{st.limitsConsumed.soqlQueries}</strong></span>
                                             <span>DML Statements: <strong className="text-slate-800">{st.limitsConsumed.dmlStatements}</strong></span>
                                             <span>CPU Time: <strong className="text-slate-800">{st.limitsConsumed.cpuTimeMs}ms</strong></span>
@@ -583,7 +664,7 @@ export function ResultsPanel(props: ResultsPanelProps) {
                                         )}
                                       </div>
                                     ) : (
-                                      <div className="text-[11px] text-slate-500 italic p-2 rounded bg-white border border-slate-200">
+                                      <div className="text-xs text-muted italic p-2 rounded bg-white border border-border">
                                         No backend database DML triggered by this frontend step (UI navigation or field focus).
                                       </div>
                                     )}

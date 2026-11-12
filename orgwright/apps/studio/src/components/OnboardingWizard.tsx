@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronRight, Search, X } from 'lucide-react';
+import { Check, ChevronRight, Search } from 'lucide-react';
+import { Modal, btn } from './ui/Modal';
 import { SALESFORCE_STANDARD_TEMPLATES, SalesforceTestTemplate } from '../data/salesforce-templates';
 
 export interface WizardResult {
@@ -16,6 +17,8 @@ interface OnboardingWizardProps {
   orgConnected: boolean;
   orgLabel: string;
   onOpenConnector: () => void;
+  /** Explore the editor with demo steps when no org is connected */
+  onTryDemo: () => void;
   standardObjects: string[];
   customObjects: string[];
   initialObject: string;
@@ -116,18 +119,11 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
   const titles = ['Connect your org', 'Choose an object', 'Pick a starter test', 'Run it'];
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="w-full max-w-xl rounded-lg bg-white shadow-xl" role="dialog" aria-label="Get started">
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-          <h2 className="text-base font-semibold text-slate-900">Get started with Orgwright</h2>
-          <button type="button" onClick={close} className="text-slate-500 hover:text-slate-900 cursor-pointer" aria-label="Close">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <ol className="flex items-center gap-1 px-5 pt-3 text-xs text-slate-500">
+    <Modal open={props.open} onClose={close} title="Get started with Orgwright" size="md" closeOnBackdrop={false}>
+        <ol className="flex flex-wrap items-center gap-1 text-xs text-slate-600">
           {titles.map((t, i) => (
             <li key={t} className="flex items-center gap-1">
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] ${i < step ? 'bg-emerald-600 text-white' : i === step ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-xs ${i < step ? 'bg-success text-white' : i === step ? 'bg-primary text-white' : 'bg-slate-200 text-slate-600'}`}>
                 {i < step ? <Check className="h-3 w-3" /> : i + 1}
               </span>
               <span className={i === step ? 'text-slate-900 font-medium' : ''}>{t}</span>
@@ -136,7 +132,7 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
           ))}
         </ol>
 
-        <div className="min-h-[260px] px-5 py-4 text-sm text-slate-700">
+        <div className="min-h-[260px] py-4 text-sm text-slate-700">
           {step === 0 && (
             <div className="space-y-3">
               {props.orgConnected ? (
@@ -146,9 +142,17 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
               ) : (
                 <p>Connect a Salesforce sandbox so Orgwright can read its objects and fields and run tests in it.</p>
               )}
-              <button type="button" onClick={props.onOpenConnector} className="h-9 rounded-md border border-slate-300 px-3 text-sm hover:bg-slate-50 cursor-pointer">
-                {props.orgConnected ? 'Change org' : 'Connect an org'}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={props.onOpenConnector} className={props.orgConnected ? btn.secondary : btn.primary}>
+                  {props.orgConnected ? 'Change org' : 'Connect an org'}
+                </button>
+                {!props.orgConnected && (
+                  <button type="button" onClick={props.onTryDemo} className={btn.ghost}>
+                    Try with demo steps (no org)
+                  </button>
+                )}
+              </div>
+              {!props.orgConnected && <p className="text-xs text-slate-600">Next unlocks once an org is connected.</p>}
             </div>
           )}
 
@@ -157,12 +161,12 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
               <p>Which object do you want to test first?</p>
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search objects" className="h-9 w-full rounded-md border border-slate-300 pl-8 pr-2 text-sm focus:outline-none focus:border-blue-500" autoFocus />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search objects" className="h-9 w-full rounded-md border border-slate-300 pl-8 pr-2 text-sm focus:outline-none focus:border-primary" autoFocus />
               </div>
-              <ul className="max-h-48 overflow-y-auto rounded-md border border-slate-200">
+              <ul className="max-h-48 overflow-y-auto rounded-md border border-border">
                 {objects.map((o) => (
                   <li key={o}>
-                    <button type="button" onClick={() => setObject(o)} className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-sm cursor-pointer ${o === object ? 'bg-blue-50 text-blue-800 font-medium' : 'hover:bg-slate-50'}`}>
+                    <button type="button" onClick={() => setObject(o)} className={`flex w-full items-center justify-between px-3 py-1.5 text-left text-sm cursor-pointer ${o === object ? 'bg-primary-soft text-blue-800 font-medium' : 'hover:bg-slate-50'}`}>
                       <span>{pretty(o)}</span>
                       <span className="font-mono text-xs text-slate-400">{o}</span>
                     </button>
@@ -174,17 +178,17 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
 
           {step === 2 && (
             <div className="space-y-2">
-              {loadingFields && <p className="text-slate-500">Reading {pretty(object)} fields…</p>}
+              {loadingFields && <p className="text-muted">Reading {pretty(object)} fields…</p>}
               {[
                 { id: 'starter', title: `Create a new ${objLabel}`, desc: fields.length ? 'Built from this object’s required fields' : 'Basic create-record flow' },
                 ...templates.map((t) => ({ id: t.id, title: t.testName, desc: t.description })),
                 { id: 'blank', title: 'Start from an empty test', desc: 'Write the steps yourself' }
               ].map((opt) => (
-                <label key={opt.id} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 ${choice === opt.id ? 'border-blue-400 bg-blue-50/50' : 'border-slate-200 hover:bg-slate-50'}`}>
+                <label key={opt.id} className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 ${choice === opt.id ? 'border-blue-400 bg-primary-soft/50' : 'border-border hover:bg-slate-50'}`}>
                   <input type="radio" name="starter" checked={choice === opt.id} onChange={() => setChoice(opt.id)} className="mt-1" />
                   <span>
                     <span className="block font-medium text-slate-900">{opt.title}</span>
-                    <span className="block text-xs text-slate-500">{opt.desc}</span>
+                    <span className="block text-xs text-muted">{opt.desc}</span>
                   </span>
                 </label>
               ))}
@@ -199,15 +203,15 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
               {chosen.steps ? (
                 <pre className="max-h-48 overflow-auto rounded-md bg-slate-50 p-2 font-mono text-xs text-slate-700">{chosen.steps}</pre>
               ) : (
-                <p className="text-slate-500">An empty test will open in the editor.</p>
+                <p className="text-muted">An empty test will open in the editor.</p>
               )}
-              <p className="text-xs text-slate-500">If a step fails, the run pauses so you can click the right element in the Live Browser and continue.</p>
+              <p className="text-xs text-muted">If a step fails, the run pauses so you can click the right element in the Live Browser and continue.</p>
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3">
-          <button type="button" onClick={close} className="text-sm text-slate-500 hover:text-slate-900 cursor-pointer">
+        <div className="-mx-5 -mb-4 flex items-center justify-between border-t border-border px-5 py-3">
+          <button type="button" onClick={close} className="text-sm text-muted hover:text-slate-900 cursor-pointer">
             Skip
           </button>
           <div className="flex gap-2">
@@ -217,7 +221,13 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
               </button>
             )}
             {step < 3 ? (
-              <button type="button" onClick={() => setStep(step + 1)} className="h-9 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer">
+              <button
+                type="button"
+                onClick={() => setStep(step + 1)}
+                disabled={step === 0 && !props.orgConnected}
+                title={step === 0 && !props.orgConnected ? 'Connect an org first, or try the demo steps' : undefined}
+                className={btn.primary}
+              >
                 Next
               </button>
             ) : (
@@ -226,7 +236,7 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
                   Open in editor
                 </button>
                 {chosen.steps && (
-                  <button type="button" onClick={() => finish(true)} className="h-9 rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer">
+                  <button type="button" onClick={() => finish(true)} className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-white hover:bg-primary-hover cursor-pointer">
                     Run test
                   </button>
                 )}
@@ -234,7 +244,6 @@ export function OnboardingWizard(props: OnboardingWizardProps) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

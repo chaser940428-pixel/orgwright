@@ -21,6 +21,7 @@ import {
   Copy,
   Link
 } from 'lucide-react';
+import { Modal } from './ui/Modal';
 
 export interface ConnectedOrg {
   alias: string;
@@ -399,49 +400,9 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Modal Header */}
-        <div className="bg-slate-50 border-b border-slate-200 p-4 px-6 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shadow-2xs">
-              <Cloud className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold text-slate-900">Salesforce Org Connector</h3>
-                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                  {orgs.length} Connected
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Manage authenticated Salesforce sandboxes, developer orgs, and authorize new environments.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={fetchOrgs}
-              disabled={isLoadingOrgs}
-              className="p-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 transition shadow-2xs cursor-pointer"
-              title="Refresh Org List"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoadingOrgs ? 'animate-spin text-blue-600' : ''}`} />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-400 hover:text-slate-600 transition shadow-2xs cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
+    <Modal open onClose={onClose} size="xl" flush title={<span className="flex items-center gap-2"><Cloud className="h-5 w-5 text-primary" aria-hidden="true" />Salesforce orgs <span className="text-xs font-medium text-muted">{orgs.length} connected</span><button type="button" onClick={fetchOrgs} disabled={isLoadingOrgs} aria-label="Refresh org list" title="Refresh org list" className="p-1 rounded text-muted hover:bg-slate-100 cursor-pointer"><RefreshCw className={`h-4 w-4 ${isLoadingOrgs ? 'motion-safe:animate-spin text-primary' : ''}`} /></button></span>}>
         {/* Tab Switcher: Directory vs Authorize New */}
-        <div className="px-6 pt-3 bg-white border-b border-slate-200 flex items-center space-x-6">
+        <div className="px-6 pt-3 bg-white border-b border-border flex items-center space-x-6">
           <button
             type="button"
             onClick={() => {
@@ -450,8 +411,8 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
             }}
             className={`pb-3 text-xs font-semibold flex items-center space-x-2 border-b-2 transition cursor-pointer ${
               activeTab === 'directory'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:text-slate-800'
             }`}
           >
             <Server className="h-4 w-4" />
@@ -466,8 +427,8 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
             }}
             className={`pb-3 text-xs font-semibold flex items-center space-x-2 border-b-2 transition cursor-pointer ${
               activeTab === 'authorize'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted hover:text-slate-800'
             }`}
           >
             <Plus className="h-4 w-4" />
@@ -481,7 +442,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
           {activeTab === 'directory' && (
             <div className="space-y-4">
               {/* Filter & Search Bar */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-lg border border-border shadow-2xs">
                 <div className="flex items-center space-x-2">
                   <div className="relative flex-1 sm:w-64">
                     <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
@@ -490,7 +451,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                       placeholder="Search alias, username, org ID..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-slate-50 border border-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary"
                     />
                   </div>
 
@@ -502,8 +463,8 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                         onClick={() => setFilterType(t)}
                         className={`px-2.5 py-1 rounded-lg capitalize transition cursor-pointer ${
                           filterType === t
-                            ? 'bg-blue-600 text-white font-medium shadow-2xs'
-                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                            ? 'bg-primary text-white font-medium shadow-2xs'
+                            : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-border'
                         }`}
                       >
                         {t === 'all' ? 'All' : t === 'sandboxes' ? 'Sandboxes' : 'Prod & Dev'}
@@ -515,7 +476,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('authorize')}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition shadow-xs cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition shadow-xs cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Authorize New Org</span>
@@ -524,7 +485,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
 
               {/* Orgs List */}
               {filteredOrgs.length === 0 ? (
-                <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl space-y-3">
+                <div className="p-12 text-center bg-white border border-border rounded-2xl space-y-3">
                   <Cloud className="h-10 w-10 mx-auto text-slate-300 stroke-1" />
                   <p className="text-sm font-semibold text-slate-700">No matching Salesforce orgs found</p>
                   <p className="text-xs text-slate-400 max-w-sm mx-auto">
@@ -533,7 +494,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('authorize')}
-                    className="mt-2 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold cursor-pointer shadow-xs"
+                    className="mt-2 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold cursor-pointer shadow-xs"
                   >
                     Authorize Your First Org
                   </button>
@@ -549,8 +510,8 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                         key={org.alias}
                         className={`bg-white rounded-lg border p-4 transition shadow-xs ${
                           isActive
-                            ? 'border-blue-500 ring-2 ring-blue-500/10'
-                            : 'border-slate-200 hover:border-slate-300'
+                            ? 'border-primary ring-2 ring-primary/10'
+                            : 'border-border hover:border-slate-300'
                         }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -562,33 +523,33 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                               </span>
 
                               {isActive && (
-                                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-success-soft text-success border border-emerald-200 flex items-center space-x-1">
                                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                   <span>ACTIVE FOR TESTING</span>
                                 </span>
                               )}
 
                               {org.isSandbox ? (
-                                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
                                   Sandbox
                                 </span>
                               ) : org.isDevHub ? (
-                                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary-soft text-primary-hover border border-blue-200">
                                   Dev Hub
                                 </span>
                               ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-success-soft text-success border border-emerald-200">
                                   Production
                                 </span>
                               )}
 
                               {org.isDefault && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span className="px-1.5 py-0.2 rounded text-xs font-semibold bg-warning-soft text-warning border border-amber-200">
                                   CLI Default
                                 </span>
                               )}
 
-                              <span className="text-[11px] text-slate-400">
+                              <span className="text-xs text-slate-400">
                                 {org.orgEdition}
                               </span>
                             </div>
@@ -604,15 +565,15 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                               {org.orgId && (
                                 <div className="flex items-center space-x-1.5">
                                   <span className="text-slate-400">Org ID:</span>
-                                  <span className="font-mono text-slate-500 text-[11px]">
+                                  <span className="font-mono text-muted text-xs">
                                     {org.orgId}
                                   </span>
                                 </div>
                               )}
 
-                              <div className="flex items-center space-x-1 text-slate-500 truncate max-w-sm">
+                              <div className="flex items-center space-x-1 text-muted truncate max-w-sm">
                                 <Link className="h-3 w-3 text-slate-400 flex-shrink-0" />
-                                <span className="truncate text-[11px] font-mono">{org.instanceUrl}</span>
+                                <span className="truncate text-xs font-mono">{org.instanceUrl}</span>
                               </div>
                             </div>
 
@@ -620,19 +581,19 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                             {latencyInfo && (
                               <div className="pt-1">
                                 {latencyInfo.testing ? (
-                                  <span className="text-[11px] text-blue-600 flex items-center space-x-1">
+                                  <span className="text-xs text-primary flex items-center space-x-1">
                                     <RefreshCw className="h-3 w-3 animate-spin" />
                                     <span>Pinging Salesforce Org API...</span>
                                   </span>
                                 ) : latencyInfo.latencyMs !== undefined ? (
-                                  <span className="text-[11px] text-emerald-700 font-medium flex items-center space-x-1">
-                                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                  <span className="text-xs text-success font-medium flex items-center space-x-1">
+                                    <CheckCircle2 className="h-3 w-3 text-success" />
                                     <span>
                                       Live API Connection Verified ({latencyInfo.latencyMs}ms roundtrip)
                                     </span>
                                   </span>
                                 ) : (
-                                  <span className="text-[11px] text-rose-600 flex items-center space-x-1">
+                                  <span className="text-xs text-danger flex items-center space-x-1">
                                     <AlertCircle className="h-3 w-3" />
                                     <span>{latencyInfo.error || 'Connection failed'}</span>
                                   </span>
@@ -650,58 +611,58 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                                   onSelectOrg(org.alias);
                                   onClose();
                                 }}
-                                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer"
+                                className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold transition shadow-xs cursor-pointer"
                               >
                                 Select Org
                               </button>
                             ) : (
-                              <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200">
+                              <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-muted text-xs font-medium border border-border">
                                 Current Org
                               </span>
                             )}
 
-                            <button
+                            <button aria-label="Open Org in Browser"
                               type="button"
                               onClick={() => handleOpenOrg(org.alias)}
-                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 transition shadow-2xs cursor-pointer"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-border text-slate-600 transition shadow-2xs cursor-pointer"
                               title="Open Org in Browser"
                             >
                               <ExternalLink className="h-4 w-4" />
                             </button>
 
-                            <button
+                            <button aria-label="Test API Connectivity"
                               type="button"
                               onClick={() => handleTestConnection(org.alias)}
                               disabled={latencyInfo?.testing}
-                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 transition shadow-2xs cursor-pointer"
+                              className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-border text-slate-600 transition shadow-2xs cursor-pointer"
                               title="Test API Connectivity"
                             >
                               <Zap className="h-4 w-4 text-amber-500" />
                             </button>
 
                             {confirmLogoutAlias === org.alias ? (
-                              <div className="flex items-center space-x-1 bg-rose-50 border border-rose-200 p-1 rounded-lg">
-                                <span className="text-[11px] text-rose-700 font-semibold px-1">Revoke?</span>
+                              <div className="flex items-center space-x-1 bg-danger-soft border border-rose-200 p-1 rounded-lg">
+                                <span className="text-xs text-danger font-semibold px-1">Revoke?</span>
                                 <button
                                   type="button"
                                   onClick={() => handleLogoutOrg(org.alias)}
-                                  className="px-2 py-0.5 rounded bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold cursor-pointer"
+                                  className="px-2 py-0.5 rounded bg-danger hover:bg-danger-hover text-white text-xs font-bold cursor-pointer"
                                 >
                                   Yes
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setConfirmLogoutAlias(null)}
-                                  className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[11px] cursor-pointer"
+                                  className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-xs cursor-pointer"
                                 >
                                   No
                                 </button>
                               </div>
                             ) : (
-                              <button
+                              <button aria-label="Revoke & Logout Org"
                                 type="button"
                                 onClick={() => setConfirmLogoutAlias(org.alias)}
-                                className="p-1.5 rounded-lg bg-slate-50 hover:bg-rose-50 hover:border-rose-200 text-slate-400 hover:text-rose-600 border border-slate-200 transition shadow-2xs cursor-pointer"
+                                className="p-1.5 rounded-lg bg-slate-50 hover:bg-danger-soft hover:border-rose-200 text-slate-400 hover:text-danger border border-border transition shadow-2xs cursor-pointer"
                                 title="Revoke & Logout Org"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -721,7 +682,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
           {activeTab === 'authorize' && (
             <div className="space-y-5 max-w-2xl mx-auto">
               {/* Method Switcher */}
-              <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
+              <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-lg border border-border text-xs">
                 <button
                   type="button"
                   onClick={() => {
@@ -730,7 +691,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                   }}
                   className={`py-2 px-3 rounded-lg font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer ${
                     authMethod === 'web'
-                      ? 'bg-white text-blue-700 shadow-xs'
+                      ? 'bg-white text-primary-hover shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -746,7 +707,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                   }}
                   className={`py-2 px-3 rounded-lg font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer ${
                     authMethod === 'token'
-                      ? 'bg-white text-blue-700 shadow-xs'
+                      ? 'bg-white text-primary-hover shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -762,7 +723,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                   }}
                   className={`py-2 px-3 rounded-lg font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer ${
                     authMethod === 'sfdx-url'
-                      ? 'bg-white text-blue-700 shadow-xs'
+                      ? 'bg-white text-primary-hover shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -773,25 +734,25 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
 
               {/* Status & Error Alerts */}
               {authError && (
-                <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 flex items-start space-x-2.5 text-xs text-rose-800 animate-in fade-in">
-                  <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="p-3.5 rounded-lg bg-danger-soft border border-rose-200 flex items-start space-x-2.5 text-xs text-rose-800 animate-in fade-in">
+                  <AlertCircle className="h-4 w-4 text-danger flex-shrink-0 mt-0.5" />
                   <div>
                     <strong className="font-semibold block">Authorization Failed</strong>
-                    <span className="font-mono text-[11px] leading-relaxed">{authError}</span>
+                    <span className="font-mono text-xs leading-relaxed">{authError}</span>
                   </div>
                 </div>
               )}
 
               {authSuccessMessage && (
-                <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs text-emerald-800 animate-in fade-in">
+                <div className="p-3.5 rounded-lg bg-success-soft border border-emerald-200 flex items-center justify-between text-xs text-emerald-800 animate-in fade-in">
                   <div className="flex items-center space-x-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <CheckCircle2 className="h-4 w-4 text-success" />
                     <span className="font-semibold">{authSuccessMessage}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setActiveTab('directory')}
-                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-2xs cursor-pointer"
+                    className="px-3 py-1 rounded-lg bg-success hover:bg-emerald-700 text-white font-semibold text-xs shadow-2xs cursor-pointer"
                   >
                     View in Orgs List
                   </button>
@@ -803,14 +764,14 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                 <div className="bg-white border-2 border-blue-400 rounded-2xl p-6 shadow-md space-y-4 animate-in fade-in">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center space-x-3">
-                      <div className="h-9 w-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+                      <div className="h-9 w-9 rounded-lg bg-primary-soft border border-blue-200 flex items-center justify-center text-primary">
                         <RefreshCw className="h-5 w-5 animate-spin" />
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-900 text-sm">
                           Authorizing Org "{activeJob.alias}" in Browser...
                         </h4>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted">
                           Target Login: <span className="font-mono">{activeJob.instanceUrl}</span>
                         </p>
                       </div>
@@ -819,7 +780,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                     <button
                       type="button"
                       onClick={handleCancelAuth}
-                      className="px-3 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold transition cursor-pointer"
+                      className="px-3 py-1 rounded-lg bg-danger-soft hover:bg-rose-100 border border-rose-200 text-danger text-xs font-semibold transition cursor-pointer"
                     >
                       Cancel Flow
                     </button>
@@ -827,21 +788,21 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
 
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center space-x-2 text-slate-700">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span>Local OAuth listener active on port 1717</span>
                     </div>
                     <div className="flex items-center space-x-2 text-slate-700">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <span>Salesforce login page opened in browser window</span>
                     </div>
-                    <div className="flex items-center space-x-2 text-blue-700 font-semibold animate-pulse">
-                      <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+                    <div className="flex items-center space-x-2 text-primary-hover font-semibold animate-pulse">
+                      <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                       <span>Waiting for you to log in & click "Allow" in your browser...</span>
                     </div>
                   </div>
 
                   {/* Terminal log output */}
-                  <div className="p-3 bg-slate-950 text-slate-300 rounded-lg font-mono text-[11px] max-h-36 overflow-y-auto space-y-1">
+                  <div className="p-3 bg-slate-950 text-slate-300 rounded-lg font-mono text-xs max-h-36 overflow-y-auto space-y-1">
                     {activeJob.output.map((line, idx) => (
                       <div key={idx} className="whitespace-pre-wrap leading-relaxed">
                         {line}
@@ -849,7 +810,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                     ))}
                   </div>
 
-                  <p className="text-[11px] text-slate-400 italic text-center">
+                  <p className="text-xs text-slate-400 italic text-center">
                     Once you complete login in the opened browser window, Orgwright will automatically detect the authorization and connect your org!
                   </p>
                 </div>
@@ -857,7 +818,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                 <>
                   {/* METHOD 1: WEB LOGIN */}
                   {authMethod === 'web' && (
-                    <form onSubmit={handleLaunchWebAuth} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
+                    <form onSubmit={handleLaunchWebAuth} className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
                       {/* Presets */}
                       <div className="space-y-1.5">
                         <label className="block text-xs font-semibold text-slate-700">
@@ -870,11 +831,11 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                             className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
                               envPreset === 'sandbox'
                                 ? 'bg-purple-50/70 border-purple-300 ring-1 ring-purple-400'
-                                : 'bg-slate-50 border-slate-200 hover:bg-slate-100/60'
+                                : 'bg-slate-50 border-border hover:bg-slate-100/60'
                             }`}
                           >
                             <span className="font-bold text-xs text-purple-900 block">Sandbox / Stage</span>
-                            <span className="text-[11px] text-purple-700 font-mono block truncate">
+                            <span className="text-xs text-purple-700 font-mono block truncate">
                               test.salesforce.com
                             </span>
                           </button>
@@ -884,12 +845,12 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                             onClick={() => handlePresetChange('prod')}
                             className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
                               envPreset === 'prod'
-                                ? 'bg-blue-50/70 border-blue-300 ring-1 ring-blue-400'
-                                : 'bg-slate-50 border-slate-200 hover:bg-slate-100/60'
+                                ? 'bg-primary-soft/70 border-blue-300 ring-1 ring-blue-400'
+                                : 'bg-slate-50 border-border hover:bg-slate-100/60'
                             }`}
                           >
                             <span className="font-bold text-xs text-blue-900 block">Production / Dev</span>
-                            <span className="text-[11px] text-blue-700 font-mono block truncate">
+                            <span className="text-xs text-primary-hover font-mono block truncate">
                               login.salesforce.com
                             </span>
                           </button>
@@ -900,11 +861,11 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                             className={`p-2.5 rounded-lg border text-left transition cursor-pointer ${
                               envPreset === 'custom'
                                 ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-400'
-                                : 'bg-slate-50 border-slate-200 hover:bg-slate-100/60'
+                                : 'bg-slate-50 border-border hover:bg-slate-100/60'
                             }`}
                           >
                             <span className="font-bold text-xs text-indigo-900 block">Custom My Domain</span>
-                            <span className="text-[11px] text-indigo-700 font-mono block truncate">
+                            <span className="text-xs text-indigo-700 font-mono block truncate">
                               *.my.salesforce.com
                             </span>
                           </button>
@@ -922,9 +883,9 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           value={newAlias}
                           onChange={(e) => setNewAlias(e.target.value)}
                           placeholder="e.g. qa-sandbox, dev-hub, uat-billing"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white"
+                          className="w-full bg-slate-50 border border-border rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-primary focus:bg-white"
                         />
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-xs text-slate-400">
                           Short friendly name used across Orgwright Studio and Salesforce CLI to refer to this org.
                         </span>
                       </div>
@@ -940,7 +901,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           value={instanceUrl}
                           onChange={(e) => setInstanceUrl(e.target.value)}
                           placeholder="https://test.salesforce.com or https://company.my.salesforce.com"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white"
+                          className="w-full bg-slate-50 border border-border rounded-lg px-3 py-2 text-xs text-slate-800 font-mono placeholder-slate-400 focus:outline-none focus:border-primary focus:bg-white"
                         />
                       </div>
 
@@ -952,7 +913,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                         <select
                           value={browserChoice}
                           onChange={(e) => setBrowserChoice(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          className="w-full bg-slate-50 border border-border rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-primary cursor-pointer"
                         >
                           <option value="default">Default System Browser (Recommended)</option>
                           <option value="chrome">Google Chrome</option>
@@ -967,7 +928,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           type="checkbox"
                           checked={setAsActive}
                           onChange={(e) => setSetAsActive(e.target.checked)}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                         />
                         <label htmlFor="set-active-checkbox" className="text-xs text-slate-700 cursor-pointer select-none">
                           Set this new org as active in Orgwright Studio upon successful authorization
@@ -979,7 +940,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                         <button
                           type="submit"
                           disabled={isSubmitting || !newAlias.trim() || !instanceUrl.trim()}
-                          className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center space-x-2 transition shadow-xs cursor-pointer"
+                          className="w-full py-2.5 px-4 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center space-x-2 transition shadow-xs cursor-pointer"
                         >
                           {isSubmitting ? (
                             <RefreshCw className="h-4 w-4 animate-spin" />
@@ -994,11 +955,11 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
 
                   {/* METHOD 2: ACCESS TOKEN */}
                   {authMethod === 'token' && (
-                    <form onSubmit={handleTokenAuth} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-                      <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-1">
+                    <form onSubmit={handleTokenAuth} className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
+                      <div className="p-3 bg-primary-soft/80 border border-blue-200 rounded-lg text-xs text-blue-800 space-y-1">
                         <span className="font-bold block">Direct Session / Token Authorization</span>
-                        <p className="text-[11px] text-blue-700">
-                          Authorize instantly without opening a browser window. Access tokens must follow the Salesforce session format: <code className="bg-white px-1 py-0.5 rounded font-mono text-[11px]">&lt;orgId&gt;!&lt;token&gt;</code> (e.g. from Workbench or Dev Console).
+                        <p className="text-xs text-primary-hover">
+                          Authorize instantly without opening a browser window. Access tokens must follow the Salesforce session format: <code className="bg-white px-1 py-0.5 rounded font-mono text-xs">&lt;orgId&gt;!&lt;token&gt;</code> (e.g. from Workbench or Dev Console).
                         </p>
                       </div>
 
@@ -1012,7 +973,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           value={newAlias}
                           onChange={(e) => setNewAlias(e.target.value)}
                           placeholder="e.g. test-token-org"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                          className="w-full bg-slate-50 border border-border rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-primary"
                         />
                       </div>
 
@@ -1026,7 +987,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           value={instanceUrl}
                           onChange={(e) => setInstanceUrl(e.target.value)}
                           placeholder="https://company.my.salesforce.com"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500"
+                          className="w-full bg-slate-50 border border-border rounded-lg px-3 py-2 text-xs text-slate-800 font-mono focus:outline-none focus:border-primary"
                         />
                       </div>
 
@@ -1040,7 +1001,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           value={accessToken}
                           onChange={(e) => setAccessToken(e.target.value)}
                           placeholder="00Dce000008a6iE!AQEAQ..."
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500 resize-none"
+                          className="w-full bg-slate-50 border border-border rounded-lg p-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-primary resize-none"
                         />
                       </div>
 
@@ -1050,7 +1011,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           type="checkbox"
                           checked={setAsActive}
                           onChange={(e) => setSetAsActive(e.target.checked)}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                         />
                         <label htmlFor="token-active-checkbox" className="text-xs text-slate-700 cursor-pointer">
                           Set as active org upon successful connection
@@ -1060,7 +1021,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                       <button
                         type="submit"
                         disabled={isSubmitting || !newAlias || !instanceUrl || !accessToken}
-                        className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center space-x-2 transition shadow-xs cursor-pointer"
+                        className="w-full py-2.5 px-4 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center space-x-2 transition shadow-xs cursor-pointer"
                       >
                         {isSubmitting ? (
                           <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1074,11 +1035,11 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
 
                   {/* METHOD 3: SFDX AUTH URL */}
                   {authMethod === 'sfdx-url' && (
-                    <form onSubmit={handleSfdxUrlAuth} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-4">
-                      <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
+                    <form onSubmit={handleSfdxUrlAuth} className="bg-white border border-border rounded-2xl p-5 shadow-xs space-y-4">
+                      <div className="p-3 bg-warning-soft/80 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-1">
                         <span className="font-bold block">SFDX Authorization URL Import</span>
-                        <p className="text-[11px] text-amber-700">
-                          Import and authorize using a Salesforce DX Auth URL (format: <code className="bg-white px-1 py-0.5 rounded font-mono text-[11px]">force://PlatformCLI:&lt;refreshToken&gt;@&lt;instanceUrl&gt;</code>).
+                        <p className="text-xs text-warning">
+                          Import and authorize using a Salesforce DX Auth URL (format: <code className="bg-white px-1 py-0.5 rounded font-mono text-xs">force://PlatformCLI:&lt;refreshToken&gt;@&lt;instanceUrl&gt;</code>).
                         </p>
                       </div>
 
@@ -1092,7 +1053,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           value={newAlias}
                           onChange={(e) => setNewAlias(e.target.value)}
                           placeholder="e.g. ci-cd-org"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                          className="w-full bg-slate-50 border border-border rounded-lg px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-primary"
                         />
                       </div>
 
@@ -1106,7 +1067,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           value={sfdxUrl}
                           onChange={(e) => setSfdxUrl(e.target.value)}
                           placeholder="force://PlatformCLI:..."
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500 resize-none"
+                          className="w-full bg-slate-50 border border-border rounded-lg p-2.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-primary resize-none"
                         />
                       </div>
 
@@ -1116,7 +1077,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                           type="checkbox"
                           checked={setAsActive}
                           onChange={(e) => setSetAsActive(e.target.checked)}
-                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                          className="rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
                         />
                         <label htmlFor="sfdx-active-checkbox" className="text-xs text-slate-700 cursor-pointer">
                           Set as active org upon successful import
@@ -1126,7 +1087,7 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
                       <button
                         type="submit"
                         disabled={isSubmitting || !newAlias || !sfdxUrl}
-                        className="w-full py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center space-x-2 transition shadow-xs cursor-pointer"
+                        className="w-full py-2.5 px-4 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-white font-semibold text-xs flex items-center justify-center space-x-2 transition shadow-xs cursor-pointer"
                       >
                         {isSubmitting ? (
                           <RefreshCw className="h-4 w-4 animate-spin" />
@@ -1144,21 +1105,21 @@ export const OrgConnectorModal: React.FC<OrgConnectorModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-slate-50 border-t border-slate-200 p-4 px-6 flex items-center justify-between text-xs text-slate-500">
+        <div className="bg-slate-50 border-t border-border p-4 px-6 flex items-center justify-between text-xs text-muted">
           <div className="flex items-center space-x-1.5">
-            <Shield className="h-3.5 w-3.5 text-emerald-600" />
+            <Shield className="h-3.5 w-3.5 text-success" />
             <span>Encrypted OAuth credentials managed by Salesforce CLI securely.</span>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium transition shadow-2xs cursor-pointer"
+            className="px-4 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-border text-slate-700 font-medium transition shadow-2xs cursor-pointer"
           >
             Close
           </button>
         </div>
-      </div>
-    </div>
+      
+        </Modal>
   );
 };
