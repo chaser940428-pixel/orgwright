@@ -57,7 +57,8 @@ import {
   FileSpreadsheet,
   UploadCloud,
   Download,
-  FileCheck
+  FileCheck,
+  History
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { QASkillsHub } from './components/QASkillsHub';
@@ -71,6 +72,15 @@ import { DataRowsPanel } from './components/DataRowsPanel';
 import { OnboardingWizard, WizardResult } from './components/OnboardingWizard';
 import { ResultsPanel } from './components/ResultsPanel';
 import { SalesforceTestTemplate } from './data/salesforce-templates';
+import { useRunStore, RunContext, deriveStage } from './run/RunContext';
+import { Header } from './components/Header';
+import { RunStatusStrip } from './components/RunStatusStrip';
+import { TestCard, TestCardMeta } from './components/TestCard';
+import { RunBar } from './components/RunBar';
+import { Modal, btn } from './components/ui/Modal';
+import { useToast } from './components/ui/Toast';
+import { TestHistoryPanel } from './components/TestHistoryPanel';
+import { onTabListKeyDown } from './components/ui/tabs';
 
 import type { FailureAnalysis, ResolvedStep, SalesforceTriggerEvent, SalesforceFlowEvent, SalesforceValidationEvent, SalesforceDmlEvent, SalesforceCalloutEvent, SalesforceLimitSummary, StepBackendActivity, ParsedApexLog, FullExecutionLogReport, OrgUser, MatrixResultItem, MatrixSummary } from './types/results';
 export type { SalesforceTriggerEvent, SalesforceFlowEvent, SalesforceValidationEvent, SalesforceDmlEvent, SalesforceCalloutEvent, SalesforceLimitSummary, StepBackendActivity, ParsedApexLog, FullExecutionLogReport, OrgUser, MatrixResultItem, MatrixSummary } from './types/results';
@@ -116,13 +126,100 @@ interface TestCaseItem {
   history?: HistorySummary;
 }
 
+interface DraftFields {
+  ticketNumber: string;
+  testId: string;
+  projectName: string;
+  testName: string;
+  objectContext: string;
+  scenarioType: 'positive' | 'negative';
+  manualSteps: string;
+  tagsText: string;
+  priority: 'High' | 'Medium' | 'Low';
+  owner: string;
+  dataRows: Array<Record<string, string>>;
+}
+
+/** Stable string of the editable test fields, used for dirty tracking. */
+function makeSnapshot(d: DraftFields): string {
+  return JSON.stringify([d.ticketNumber, d.testId, d.projectName, d.testName, d.objectContext, d.scenarioType, d.manualSteps, d.tagsText, d.priority, d.owner, d.dataRows]);
+}
+
+const DRAFT_PREFIX = 'orgwright.draft.';
+function readDraft(id: string): DraftFields | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_PREFIX + id);
+    return raw ? (JSON.parse(raw) as DraftFields) : null;
+  } catch {
+    return null;
+  }
+}
+function writeDraft(id: string, d: DraftFields) {
+  if (!id) return;
+  try {
+    localStorage.setItem(DRAFT_PREFIX + id, JSON.stringify(d));
+  } catch {}
+}
+function clearDraft(id: string) {
+  try {
+    localStorage.removeItem(DRAFT_PREFIX + id);
+  } catch {}
+}
+
+/** Default sample, in canonical step-language form (see README) */
+const SAMPLE_STEPS = `1. Log in to Salesforce
+2. Open Account list
+3. Click on New button
+4. Enter "Acme {{unique}}" in "Account Name"
+5. Select "Technology" from "Industry" picklist
+6. Enter "100 Market St" in "Billing Street"
+7. Click on Save button
+8. Verify toast "was created"
+9. Verify field "Industry" equals "Technology"`;
+
+/** Every new test starts with the standard opening: log in, App Launcher, app, tab */
+const NEW_TEST_STEPS = '1. Log in to Salesforce\n2. Click App Launcher\n3. Search app ""\n4. Select "" tab\n5. ';
+
 export default function App() {
+  // Run / record state lives in one store, shared with child components through RunContext
+  const run = useRunStore();
+  const {
+    isRunning, setIsRunning, isBatchRunning, setIsBatchRunning, isStopping, setIsStopping,
+    isPaused, setIsPaused, pausedStepIndex, setPausedStepIndex, pausedStepText, setPausedStepText,
+    runStatus, setRunStatus, runDuration, setRunDuration, repair, setRepair, repairRef,
+    repairBusy, setRepairBusy, isRecording, setIsRecording, isStartingRecorder, setIsStartingRecorder,
+    recordedStepsCount, setRecordedStepsCount, liveStep, setLiveStep
+  } = run;
   // Connected Orgs & Objects state
   const [orgList, setOrgList] = useState<OrgInfo[]>([]);
   // Empty until /api/org/list answers, so nothing is loaded from an org the user did not pick
   const [selectedOrg, setSelectedOrg] = useState('');
   const [orgStatus, setOrgStatus] = useState<OrgStatus | null>(null);
   const [isConnectingOrg, setIsConnectingOrg] = useState(false);
+  const [isLoadingOrgList, setIsLoadingOrgList] = useState(true);
+
+  /** Single source of truth for the connected org's environment. Never guesses "production". */
+  const getOrgEnvironment = (): 'none' | 'loading' | 'developer' | 'sandbox' | 'production' | 'unknown' => {
+    if (!selectedOrg) return isLoadingOrgList ? 'loading' : 'none';
+    const org = orgList.find((o) => o.alias === selectedOrg);
+    if (!org) return isLoadingOrgList ? 'loading' : 'unknown';
+    const url = org.instanceUrl || '';
+    if (org.isSandbox === true || /\.sandbox\.my\.salesforce\.com/i.test(url)) return 'sandbox';
+    // Developer Edition orgs live on *.develop.my.salesforce.com
+    if (/\.develop\.my\.salesforce\.com|dev-ed/i.test(url)) return 'developer';
+    if (org.isSandbox === false && /\.my\.salesforce\.com/i.test(url)) return 'production';
+    return 'unknown';
+  };
+  const ORG_ENV_LABEL: Record<ReturnType<typeof getOrgEnvironment>, string> = {
+    none: 'No org connected',
+    loading: 'Loading…',
+    developer: 'Developer',
+    sandbox: 'Sandbox',
+    production: 'Production',
+    unknown: 'Unknown'
+  };
+  const orgEnv = getOrgEnvironment();
+  const orgEnvLabel = ORG_ENV_LABEL[orgEnv];
   const [showOrgConnectorModal, setShowOrgConnectorModal] = useState(false);
   const [showTemplateLibraryModal, setShowTemplateLibraryModal] = useState(false);
 
@@ -137,25 +234,15 @@ export default function App() {
   const [ticketNumber, setTicketNumber] = useState('CRM-101');
   const [testId, setTestId] = useState('TC_001');
   const [projectName, setProjectName] = useState('Sales Cloud');
-  const [testName, setTestName] = useState('Create New Account with Industry and Billing Address');
+  const [testName, setTestName] = useState('Create an Account with Industry and Billing Street');
   const [objectContext, setObjectContext] = useState('Account');
   const [scenarioType, setScenarioType] = useState<'positive' | 'negative'>('positive');
-  const [manualSteps, setManualSteps] = useState(
-`1. Log in to Salesforce
-2. Navigate to Account tab
-3. Click on New button
-4. Enter "Acme Corporation" in Account Name
-5. Select "Technology" from Industry picklist
-6. Enter "100 Market St, San Francisco" in Billing Address
-7. Click on Save button
-8. Verify toast "Account was created"
-9. Verify field "Account Name" equals "Acme Corporation"`
-  );
+  const [manualSteps, setManualSteps] = useState(SAMPLE_STEPS);
 
   // Execution options
   const [headed, setHeaded] = useState(true);
   const [selectedBrowser, setSelectedBrowser] = useState<'chrome' | 'msedge' | 'chromium'>('chrome');
-  const [activeTab, setActiveTab] = useState<'suite' | 'plan' | 'code' | 'browser' | 'terminal' | 'logs' | 'qa-hub'>('suite');
+  const [activeTab, setActiveTab] = useState<'suite' | 'plan' | 'code' | 'browser' | 'terminal' | 'logs' | 'qa-hub' | 'history'>('suite');
 
   // Execution & Salesforce Backend Logs state
   const [executionLogReport, setExecutionLogReport] = useState<FullExecutionLogReport | null>(null);
@@ -167,14 +254,10 @@ export default function App() {
   const [copiedRawLog, setCopiedRawLog] = useState<boolean>(false);
 
   // Live Interactive Recorder state
-  const [isRecording, setIsRecording] = useState(false);
-  const [isStartingRecorder, setIsStartingRecorder] = useState(false);
-  const [recordedStepsCount, setRecordedStepsCount] = useState(0);
 
   // Live Browser Viewport Streaming states
   const [liveFrame, setLiveFrame] = useState<string | null>(null);
   const [liveUrl, setLiveUrl] = useState<string>('https://login.salesforce.com');
-  const [liveStep, setLiveStep] = useState<string>('');
   const [quickTypeText, setQuickTypeText] = useState('');
 
   // Async states
@@ -197,9 +280,6 @@ export default function App() {
   const [owner, setOwner] = useState('');
   const [dataRows, setDataRows] = useState<Array<Record<string, string>>>([]);
   const [pauseOnFailure, setPauseOnFailure] = useState(true);
-  const [repair, setRepair] = useState<RepairState | null>(null);
-  const repairRef = useRef<RepairState | null>(null);
-  const [repairBusy, setRepairBusy] = useState(false);
   const [lastSuiteSummary, setLastSuiteSummary] = useState<SuiteRunSummary | null>(null);
   const [showNightly, setShowNightly] = useState(false);
   const [showWizard, setShowWizard] = useState(() => {
@@ -210,17 +290,26 @@ export default function App() {
     }
   });
   const tagList = tagsText.split(',').map((t) => t.trim()).filter(Boolean);
+
+  // ---- Dirty tracking, gates and shared UI (toasts, dialogs)
+  const showToast = useToast();
+  const [lastCodeSubTab, setLastCodeSubTab] = useState<'plan' | 'code' | 'terminal'>('code');
+  const [isSaving, setIsSaving] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [openCheatSheetNonce, setOpenCheatSheetNonce] = useState(0);
+  const [focusRequest, setFocusRequest] = useState<{ nonce: number; line?: number; stepIndex?: number; firstError?: boolean } | undefined>(undefined);
+  const [leaveGate, setLeaveGate] = useState<{ proceed: () => void } | null>(null);
+  const [runGate, setRunGate] = useState<{ resolve: (ok: boolean) => void } | null>(null);
+  const [prodGate, setProdGate] = useState<{ what: string; resolve: (ok: boolean) => void } | null>(null);
+  const [prodTyped, setProdTyped] = useState('');
+  const currentDraft: DraftFields = { ticketNumber, testId, projectName, testName, objectContext, scenarioType, manualSteps, tagsText, priority, owner, dataRows };
+  const currentSnapshot = makeSnapshot(currentDraft);
+  const [savedSnapshot, setSavedSnapshot] = useState<string>(() => currentSnapshot);
+  const isDirty = currentSnapshot !== savedSnapshot;
   const dataColumns = dataRows.length ? Object.keys(dataRows[0]) : [];
   const [zoomedScreenshot, setZoomedScreenshot] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isBatchRunning, setIsBatchRunning] = useState(false);
-  const [isStopping, setIsStopping] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [pausedStepIndex, setPausedStepIndex] = useState<number | null>(null);
-  const [pausedStepText, setPausedStepText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState(false);
 
   // Data states
@@ -229,8 +318,6 @@ export default function App() {
   const [pristineGeneratedCode, setPristineGeneratedCode] = useState('');
   const [isCodeEdited, setIsCodeEdited] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
-  const [runStatus, setRunStatus] = useState<'idle' | 'running' | 'passed' | 'failed' | 'interrupted'>('idle');
-  const [runDuration, setRunDuration] = useState<number | null>(null);
 
   // Failure Analysis Modal State
   const [showFailureModal, setShowFailureModal] = useState<boolean>(false);
@@ -240,7 +327,7 @@ export default function App() {
 
   // Saved Test Cases Catalog & Regression state
   const [testCases, setTestCases] = useState<TestCaseItem[]>([]);
-  const [selectedTestIds, setSelectedTestIds] = useState<string[]>(['TC_002']);
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
   const [projectFilter, setProjectFilter] = useState<string>('all');
 
   // Excel Import / Export & Jira Test Proof State
@@ -265,21 +352,31 @@ export default function App() {
   };
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([defaultAdminUser]);
   const [selectedPersona, setSelectedPersona] = useState<OrgUser>(defaultAdminUser);
-  const [showPersonaDropdown, setShowPersonaDropdown] = useState(false);
-  const [personaSearchQuery, setPersonaSearchQuery] = useState('');
-  const [selectedProfileFilter, setSelectedProfileFilter] = useState('All');
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   // Multi-User Persona Matrix Execution State
   const [showMatrixModal, setShowMatrixModal] = useState(false);
-  const [selectedMatrixUserIds, setSelectedMatrixUserIds] = useState<string[]>(['admin', '005UP00000BWXFdYAP', '005UP00000EwJa5YAF']);
+  const [selectedMatrixUserIds, setSelectedMatrixUserIds] = useState<string[]>([]);
   const [isMatrixRunning, setIsMatrixRunning] = useState(false);
   const [matrixResults, setMatrixResults] = useState<MatrixResultItem[]>([]);
   const [matrixSummary, setMatrixSummary] = useState<MatrixSummary | null>(null);
   const [currentMatrixPersona, setCurrentMatrixPersona] = useState<OrgUser | null>(null);
   const [matrixProgressIndex, setMatrixProgressIndex] = useState(0);
   const [copiedMatrixReport, setCopiedMatrixReport] = useState(false);
-  const personaDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Keep selections limited to IDs that actually exist once tests / users load
+  useEffect(() => {
+    setSelectedTestIds((prev) => {
+      const next = prev.filter((id) => testCases.some((tc) => tc.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [testCases]);
+  useEffect(() => {
+    setSelectedMatrixUserIds((prev) => {
+      const next = prev.filter((id) => orgUsers.some((u) => u.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [orgUsers]);
 
   const terminalEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -317,7 +414,7 @@ export default function App() {
 
   // Developer-only tabs are hidden in Tester mode; fall back to a visible tab
   useEffect(() => {
-    if (isTesterMode && ['plan', 'code', 'terminal', 'qa-hub'].includes(activeTab)) {
+    if (isTesterMode && ['plan', 'code', 'terminal'].includes(activeTab)) {
       setActiveTab(runStatus === 'running' ? 'browser' : 'suite');
     }
   }, [isTesterMode, activeTab, runStatus]);
@@ -424,17 +521,6 @@ export default function App() {
     }
   };
 
-  // Close persona dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (personaDropdownRef.current && !personaDropdownRef.current.contains(e.target as Node)) {
-        setShowPersonaDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   // Initial Data Load & Persistent WebSocket
   useEffect(() => {
     // 1. Fetch available orgs
@@ -453,7 +539,8 @@ export default function App() {
       })
       .catch(() => {
         // No org list: leave the org unselected rather than guessing an alias
-      });
+      })
+      .finally(() => setIsLoadingOrgList(false));
 
     // 2. Fetch saved test cases
     fetchTestCases();
@@ -513,8 +600,13 @@ export default function App() {
           } else if (payload.type === 'step_repaired') {
             const n = payload.stepIndex as number;
             const replacement = String(payload.step || '').replace(/^\s*\d+[.)]\s*/, '');
-            // Rewrite step N in the editor with what actually worked
+            // Rewrite step N in the editor with what actually worked (undo-able)
             setManualSteps((prev) => {
+              const before = prev;
+              window.setTimeout(
+                () => showToast({ message: `Step ${n} updated with the repair that worked`, action: { label: 'Undo', onClick: () => setManualSteps(before) } }),
+                0
+              );
               const lines = prev.split('\n');
               let seen = 0;
               for (let i = 0; i < lines.length; i++) {
@@ -660,14 +752,12 @@ export default function App() {
             if (payload.report.status === 'failed') {
               if (payload.report.failureAnalysis) {
                 setFailureAnalysis(payload.report.failureAnalysis);
-                setShowFailureModal(true);
               } else {
                 fetch('/api/test-results/last-failure')
                   .then((r) => r.json())
                   .then((data) => {
                     if (data.failureAnalysis) {
                       setFailureAnalysis(data.failureAnalysis);
-                      setShowFailureModal(true);
                     }
                   })
                   .catch(() => {});
@@ -802,7 +892,7 @@ export default function App() {
     setOwner('');
     setDataRows([]);
     // Every new test starts with the standard opening: log in, App Launcher, app, tab
-    setManualSteps('1. Log in to Salesforce\n2. Click App Launcher\n3. Search app ""\n4. Select "" tab\n5. ');
+    setManualSteps(NEW_TEST_STEPS);
     setResolvedSteps([]);
     setGeneratedCode('');
     setPristineGeneratedCode('');
@@ -810,10 +900,51 @@ export default function App() {
     setRunStatus('idle');
     setRunDuration(null);
     setActiveTab('code');
+    setSavedSnapshot(
+      makeSnapshot({
+        ticketNumber: '', testId: nextId, projectName, testName: '', objectContext, scenarioType: 'positive',
+        manualSteps: NEW_TEST_STEPS, tagsText: '', priority: 'Medium', owner: '', dataRows: []
+      })
+    );
   };
 
   // Load a Saved Test Case into the Editor
   const handleLoadTestCase = async (tc: TestCaseItem) => {
+    const loaded: DraftFields = {
+      ticketNumber: tc.ticketNumber || '',
+      testId: tc.id,
+      projectName: tc.project || 'Sales Cloud',
+      testName: tc.testName || '',
+      objectContext: tc.objectName || 'Account',
+      scenarioType:
+        tc.scenarioType ||
+        ((tc.testName && (tc.testName.toLowerCase().includes('negative') || tc.testName.toLowerCase().includes('validation') || tc.testName.toLowerCase().includes('read-only'))) ? 'negative' : 'positive'),
+      manualSteps: tc.steps || '',
+      tagsText: (tc.tags || []).join(', '),
+      priority: tc.priority || 'Medium',
+      owner: tc.owner || '',
+      dataRows: Array.isArray(tc.dataRows) ? tc.dataRows : []
+    };
+    const loadedSnapshot = makeSnapshot(loaded);
+    setSavedSnapshot(loadedSnapshot);
+    // A draft left from an earlier session wins over the saved copy; Undo goes back to the saved copy
+    const draft = readDraft(tc.id);
+    if (draft && makeSnapshot(draft) !== loadedSnapshot) {
+      window.setTimeout(() => {
+        applyDraftFields(draft);
+        showToast({
+          message: `Restored unsaved changes to ${tc.id}.`,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              applyDraftFields(loaded);
+              clearDraft(tc.id);
+            }
+          },
+          durationMs: 8000
+        });
+      }, 0);
+    }
     setTestId(tc.id);
     setTicketNumber(tc.ticketNumber || '');
     setProjectName(tc.project || 'Sales Cloud');
@@ -897,33 +1028,102 @@ export default function App() {
     }
   };
 
-  // Import all standard templates into test suite
-  const handleImportAllTemplates = async () => {
+  // Import all standard templates (after the library's dry run); Undo removes/restores what changed
+  const handleImportAllTemplates = async (mode: 'skip' | 'replace') => {
     try {
       const res = await fetch('/api/templates/import-all', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode })
       });
       const data = await res.json();
-      if (data.success) {
-        fetchTestCases();
-        setShowTemplateLibraryModal(false);
+      if (!data.success) {
+        showToast({ tone: 'error', message: data.error || 'Import failed' });
+        return;
       }
-    } catch (err) {
-      console.error('Failed to import all templates:', err);
+      await fetchTestCases();
+      const created: string[] = data.created || [];
+      const replaced: string[] = data.replaced || [];
+      const failed: Array<{ id: string; error: string }> = data.failed || [];
+      if (failed.length) {
+        showToast({ tone: 'error', durationMs: 0, message: `${failed.length} template${failed.length > 1 ? 's' : ''} not imported: ${failed.slice(0, 3).map((f) => `${f.id} (${f.error})`).join('; ')}${failed.length > 3 ? '…' : ''}` });
+      }
+      const parts = [`Added ${created.length}`];
+      if (replaced.length) parts.push(`replaced ${replaced.length}`);
+      if (data.skipped?.length) parts.push(`skipped ${data.skipped.length}`);
+      showToast({
+        tone: 'success',
+        durationMs: 10000,
+        message: parts.join(' · '),
+        action:
+          created.length || replaced.length
+            ? {
+                label: 'Undo',
+                onClick: async () => {
+                  try {
+                    const r = await fetch('/api/templates/import-all/undo', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ created, replaced })
+                    });
+                    const d = await r.json();
+                    if (!d.success) throw new Error(d.error);
+                    fetchTestCases();
+                    showToast({ message: 'Import undone' });
+                  } catch (e: any) {
+                    showToast({ tone: 'error', message: `Could not undo the import: ${e?.message || 'network error'}` });
+                  }
+                }
+              }
+            : undefined
+      });
+      setShowTemplateLibraryModal(false);
+    } catch (err: any) {
+      showToast({ tone: 'error', message: `Import failed: ${err?.message || 'network error'}` });
     }
   };
 
-  // Delete a Test Case
-  const handleDeleteTestCase = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to delete test case ${id}?`)) return;
-    try {
-      await fetch(`/api/testcases/${id}`, { method: 'DELETE' });
-      setSelectedTestIds((prev) => prev.filter((t) => t !== id));
-      fetchTestCases();
-    } catch (err) {
-      console.error(err);
+  // Delete test cases (soft delete on the server; Undo restores them from the trash)
+  const handleDeleteTestCases = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const deleted: string[] = [];
+    const failed: string[] = [];
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/testcases/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        (res.ok ? deleted : failed).push(id);
+      } catch {
+        failed.push(id);
+      }
+    }
+    setSelectedTestIds((prev) => prev.filter((t) => !deleted.includes(t)));
+    fetchTestCases();
+    if (failed.length) showToast({ tone: 'error', message: `Could not delete ${failed.join(', ')}` });
+    if (deleted.length) {
+      showToast({
+        message: deleted.length === 1 ? `Deleted ${deleted[0]}` : `Deleted ${deleted.length} tests`,
+        durationMs: 10000,
+        action: {
+          label: 'Undo',
+          onClick: async () => {
+            const notRestored: string[] = [];
+            for (const id of deleted) {
+              try {
+                const r = await fetch(`/api/testcases/${encodeURIComponent(id)}/restore`, { method: 'POST' });
+                if (!r.ok) notRestored.push(id);
+              } catch {
+                notRestored.push(id);
+              }
+            }
+            fetchTestCases();
+            showToast(
+              notRestored.length
+                ? { tone: 'error', message: `Could not restore ${notRestored.join(', ')}` }
+                : { tone: 'success', message: deleted.length === 1 ? `Restored ${deleted[0]}` : `Restored ${deleted.length} tests` }
+            );
+          }
+        }
+      });
     }
   };
 
@@ -1054,50 +1254,27 @@ export default function App() {
     }).catch((err) => console.error('Special key error:', err));
   };
 
-  // Global Keyboard listener for the live browser viewport
-  useEffect(() => {
+  // Keyboard forwarding: only while the live viewport has focus, and never Tab (it keeps moving focus)
+  const [viewportFocused, setViewportFocused] = useState(false);
+  const handleViewportKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!isRecording && !isPaused) return;
-
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      // If typing in standard studio inputs on the left side, do not intercept
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-        if (target.id !== 'live-quick-type-input') {
-          return;
-        }
-      }
-
-      // If user is focused on quick-type input, let Enter submit naturally via form onSubmit
-      if (target?.id === 'live-quick-type-input' && e.key === 'Enter') {
-        return;
-      }
-
-      // Forward single character keystrokes to active browser
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (target?.id !== 'live-quick-type-input') {
-          fetch('/api/record/type', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: e.key })
-          }).catch(() => {});
-        }
-      } else if (['Backspace', 'Enter', 'Tab', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Delete'].includes(e.key)) {
-        if (target?.id !== 'live-quick-type-input') {
-          if (['Backspace', 'Tab'].includes(e.key)) {
-            e.preventDefault();
-          }
-          fetch('/api/record/key', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key: e.key })
-          }).catch(() => {});
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isRecording, isPaused]);
+    if (e.key === 'Tab' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length === 1) {
+      e.preventDefault();
+      fetch('/api/record/type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: e.key })
+      }).catch(() => {});
+    } else if (['Backspace', 'Enter', 'Escape', 'ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Delete'].includes(e.key)) {
+      e.preventDefault();
+      fetch('/api/record/key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: e.key })
+      }).catch(() => {});
+    }
+  };
 
   // Repair decisions for a step that failed while the run is paused
   const sendRepair = async (action: 'clicked' | 'retry' | 'fail', newStep?: string) => {
@@ -1130,7 +1307,7 @@ export default function App() {
     setActiveTab('suite');
     if (result.run) {
       // Let state settle before running with the new steps
-      setTimeout(() => runButtonRef.current?.click(), 300);
+      setTimeout(() => requestRunRef.current(), 300);
     }
   };
 
@@ -1200,7 +1377,11 @@ export default function App() {
   };
 
   // 4. Save Test Case & Spec
-  const handleSaveTestCase = async () => {
+  const handleSaveTestCase = async (): Promise<boolean> => {
+    if (!(await ensureProdConfirmed('save this test'))) return false;
+    const snapshotAtSave = currentSnapshot;
+    const idAtSave = testId;
+    setIsSaving(true);
     try {
       const res = await fetch('/api/testcases/save', {
         method: 'POST',
@@ -1223,14 +1404,30 @@ export default function App() {
           codeEdited: isCodeEdited
         })
       });
-      const data = await res.json();
-      if (data.success) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2500);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setSavedSnapshot(snapshotAtSave);
+        clearDraft(idAtSave);
+        showToast({ message: `Saved ${idAtSave}.`, tone: 'success', durationMs: 2500 });
         fetchTestCases();
+        return true;
       }
+      showToast({
+        message: data.error || `Save failed (HTTP ${res.status}).`,
+        tone: 'error',
+        action: { label: 'Retry', onClick: () => handleSaveTestCase() }
+      });
+      return false;
     } catch (err) {
       console.error('Failed to save test case:', err);
+      showToast({
+        message: err instanceof Error ? `Save failed: ${err.message}` : 'Save failed: server unreachable.',
+        tone: 'error',
+        action: { label: 'Retry', onClick: () => handleSaveTestCase() }
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1273,19 +1470,22 @@ export default function App() {
     }
 
     const newSteps = updatedLines.join('\n');
+    const previousSteps = manualSteps;
     setManualSteps(newSteps);
     triggerRealtimeSpecGen(newSteps);
     setShowFailureModal(false);
+    showToast({ message: `Step ${idx} replaced with the suggested fix`, action: { label: 'Undo', onClick: () => setManualSteps(previousSteps) } });
 
     if (reRun) {
-      setTimeout(() => {
-        handleExecute();
-      }, 500);
+      // Pass the fixed steps explicitly: state from setManualSteps is not visible to this closure
+      handleExecute(newSteps);
     }
   };
 
   // 7. Execute Single Test Live
-  const handleExecute = async () => {
+  const handleExecute = async (stepsOverride?: string) => {
+    const stepsToRun = typeof stepsOverride === 'string' ? stepsOverride : manualSteps;
+    const forceRegenerate = typeof stepsOverride === 'string';
     setIsRunning(true);
     setIsPaused(false);
     setPausedStepIndex(null);
@@ -1298,7 +1498,7 @@ export default function App() {
 
     try {
       let codeToRun = generatedCode;
-      if (!codeToRun || !isCodeEdited) {
+      if (!codeToRun || !isCodeEdited || forceRegenerate) {
         const genRes = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1310,7 +1510,7 @@ export default function App() {
             objectName: objectContext,
             targetOrg: selectedOrg,
             dataRows,
-            steps: manualSteps
+            steps: stepsToRun
           })
         });
         const genData = await genRes.json();
@@ -1332,11 +1532,11 @@ export default function App() {
           ticketNumber,
           testName,
           scenarioType,
-          steps: manualSteps,
+          steps: stepsToRun,
           persona: selectedPersona,
           targetOrg: selectedOrg,
           pauseOnFailure,
-          codeEdited: isCodeEdited
+          codeEdited: forceRegenerate ? false : isCodeEdited
         })
       });
       const execData = await execRes.json();
@@ -1347,7 +1547,7 @@ export default function App() {
         }
         if (execData.report.status === 'failed' && execData.report.failureAnalysis) {
           setFailureAnalysis(execData.report.failureAnalysis);
-          setShowFailureModal(true);
+          setActiveTab('logs');
         }
       }
     } catch (err) {
@@ -1391,6 +1591,13 @@ export default function App() {
 
   // 7.3 Resume Live Automation Execution
   const handleResumeExecution = async () => {
+    // A failed step is waiting on a repair decision: resuming must go through the repair
+    // path (retry the failing step) or the server keeps waiting and the run stalls.
+    const pendingRepair = repairRef.current;
+    if (pendingRepair) {
+      await sendRepair('retry', pendingRepair.capturedStep || pendingRepair.step);
+      return;
+    }
     try {
       setIsPaused(false);
       const stepLines = manualSteps.split('\n').map((s) => s.trim()).filter((s) => s.length > 0);
@@ -1546,9 +1753,10 @@ export default function App() {
   };
 
   // 10. Export Test Scenarios to Excel (.xlsx)
-  const handleExportToExcel = () => {
+  const handleExportToExcel = (onlyIds?: string[]) => {
     try {
-      const rows = (testCases.length > 0 ? testCases : []).map((tc, idx) => {
+      const source = onlyIds ? testCases.filter((tc) => onlyIds.includes(tc.id)) : testCases;
+      const rows = source.map((tc: any, idx) => {
         const itemType = tc.scenarioType || (
           (tc.testName && (tc.testName.toLowerCase().includes('negative') || tc.testName.toLowerCase().includes('validation') || tc.testName.toLowerCase().includes('read-only')))
             ? 'negative'
@@ -1560,7 +1768,12 @@ export default function App() {
           'Project': tc.project || 'Sales Cloud',
           'Scenario Type': itemType === 'negative' ? 'Negative' : 'Positive',
           'Test Scenario Objective': tc.testName || '',
-          'Persona / Profile': 'Standard User',
+          'Persona / Profile': tc.persona || '',
+          'Object': tc.objectName || '',
+          'Tags': (tc.tags || []).join(', '),
+          'Priority': tc.priority || 'Medium',
+          'Owner': tc.owner || '',
+          'Data Rows (JSON)': Array.isArray(tc.dataRows) && tc.dataRows.length ? JSON.stringify(tc.dataRows) : '',
           'Step Count': tc.stepCount || (tc.steps ? tc.steps.split('\n').filter(s => s.trim()).length : 0),
           'Test Steps & Data': tc.steps || '',
           'Last Status': tc.lastStatus ? tc.lastStatus.toUpperCase() : 'READY',
@@ -1577,6 +1790,11 @@ export default function App() {
         { wch: 15 },
         { wch: 45 },
         { wch: 18 },
+        { wch: 16 },
+        { wch: 20 },
+        { wch: 10 },
+        { wch: 16 },
+        { wch: 30 },
         { wch: 12 },
         { wch: 65 },
         { wch: 12 },
@@ -1604,15 +1822,7 @@ export default function App() {
           'Scenario Type': 'Positive',
           'Test Scenario Objective': 'Create New Account with Industry and Billing Address',
           'Persona / Profile': 'Standard User',
-          'Test Steps & Data': `1. Log in to Salesforce
-2. Navigate to Account tab
-3. Click on New button
-4. Enter "Acme Corporation" in Account Name
-5. Select "Technology" from Industry picklist
-6. Enter "100 Market St, San Francisco" in Billing Address
-7. Click on Save button
-8. Verify toast "Account was created"
-9. Verify field "Account Name" equals "Acme Corporation"`
+          'Test Steps & Data': SAMPLE_STEPS
         },
         {
           'Test ID': 'TC_002',
@@ -1622,13 +1832,12 @@ export default function App() {
           'Test Scenario Objective': 'Verify Validation Rule Prevents Saving Account Without Rating when Annual Revenue Exceeds 1M',
           'Persona / Profile': 'Standard User',
           'Test Steps & Data': `1. Log in to Salesforce
-2. Navigate to Account tab
+2. Open Account list
 3. Click on New button
-4. Enter "Global Enterprise Corp" in Account Name
-5. Enter "1500000" in Annual Revenue
-6. Leave Rating field blank
-7. Click on Save button
-8. Verify error message "Rating is mandatory when Annual Revenue exceeds $1,000,000"`
+4. Enter "Global Enterprise {{unique}}" in "Account Name"
+5. Enter "1500000" in "Annual Revenue"
+6. Click on Save button
+7. Verify error "Rating is mandatory when Annual Revenue exceeds $1,000,000"`
         },
         {
           'Test ID': 'TC_003',
@@ -1638,10 +1847,9 @@ export default function App() {
           'Test Scenario Objective': 'Verify Support Persona Cannot Edit Closed/Resolved Case',
           'Persona / Profile': 'Restricted Support User',
           'Test Steps & Data': `1. Log in to Salesforce as Restricted Support User
-2. Navigate to Cases tab
-3. Open recent Case with status "Closed"
-4. Verify "Edit" button is hidden or disabled
-5. Verify field "Subject" is read-only`
+2. Open recent Case
+3. Verify "Edit" button is not visible
+4. Verify field "Subject" is read-only`
         }
       ];
 
@@ -1699,6 +1907,22 @@ export default function App() {
           const scenarioType: 'positive' | 'negative' = rawType.includes('neg') ? 'negative' : 'positive';
           const rawName = normalized['test scenario objective'] || normalized['scenario objective'] || normalized['scenario name'] || normalized['test name'] || normalized['objective'] || normalized['name'] || `Imported Scenario ${idx + 1}`;
           const rawSteps = normalized['test steps & data'] || normalized['test steps'] || normalized['steps'] || normalized['step definitions'] || '';
+          const rawObject = String(normalized['object'] || normalized['object name'] || normalized['sobject'] || '').trim();
+          const rawTags = String(normalized['tags'] || '').split(/[,;]/).map((t: string) => t.trim()).filter(Boolean);
+          const rawPriority = String(normalized['priority'] || '').trim();
+          const priority = ['High', 'Medium', 'Low'].find((p) => p.toLowerCase() === rawPriority.toLowerCase());
+          const rawOwner = String(normalized['owner'] || '').trim();
+          const rawPersona = String(normalized['persona / profile'] || normalized['persona'] || '').trim();
+          let dataRows: Array<Record<string, string>> | undefined;
+          const rawDataRows = String(normalized['data rows (json)'] || normalized['data rows'] || '').trim();
+          if (rawDataRows) {
+            try {
+              const parsed = JSON.parse(rawDataRows);
+              if (Array.isArray(parsed)) dataRows = parsed;
+            } catch {
+              /* keep the test, drop unreadable data rows */
+            }
+          }
 
           const formattedSteps = Array.isArray(rawSteps)
             ? rawSteps.join('\n')
@@ -1711,10 +1935,15 @@ export default function App() {
             ticketNumber: String(rawTicket).trim(),
             project: String(rawProject).trim(),
             testName: String(rawName).trim(),
-            objectName: 'Account',
+            objectName: rawObject || 'Account',
             scenarioType,
             steps: formattedSteps,
             stepCount: stepCount || 1,
+            tags: rawTags,
+            ...(priority ? { priority } : {}),
+            ...(rawOwner ? { owner: rawOwner } : {}),
+            ...(rawPersona ? { persona: rawPersona } : {}),
+            ...(dataRows ? { dataRows } : {}),
             hasSpec: false,
             lastStatus: 'idle'
           };
@@ -1741,7 +1970,14 @@ export default function App() {
         body: JSON.stringify({ testCases: importedScenariosPreview })
       });
       const data = await res.json();
-      if (data.success) {
+      if (Array.isArray(data.failures) && data.failures.length) {
+        setExcelImportError(
+          `${data.failures.length} row${data.failures.length > 1 ? 's' : ''} not imported: ` +
+            data.failures.slice(0, 5).map((f: any) => `${f.id} (${f.error})`).join('; ') +
+            (data.failures.length > 5 ? '…' : '')
+        );
+      }
+      if (data.success && data.count > 0 && !(data.failures || []).length) {
         setExcelImportSuccess(`Successfully imported ${data.count} test scenarios into Orgwright Studio!`);
         await fetchTestCases();
         setTimeout(() => {
@@ -1751,7 +1987,11 @@ export default function App() {
           setExcelImportSuccess(null);
           setActiveTab('suite');
         }, 1200);
-      } else {
+      } else if (data.count > 0) {
+        // Partial import: keep the dialog open with the failure list
+        await fetchTestCases();
+        setExcelImportSuccess(`Imported ${data.count} of ${importedScenariosPreview.length} test scenarios.`);
+      } else if (!(data.failures || []).length) {
         setExcelImportError(data.error || 'Failed to import scenarios');
       }
     } catch (err: any) {
@@ -1790,745 +2030,343 @@ export default function App() {
 
   const distinctProjects = Array.from(new Set(testCases.map((t) => t.project || 'Sales Cloud'))).filter(Boolean);
 
+  // ---------------------------------------------------------------- Phase 1: steps-first loop
+  const handleMetaChange = <K extends keyof TestCardMeta>(key: K, value: TestCardMeta[K]) => {
+    const setters: { [P in keyof TestCardMeta]: (v: TestCardMeta[P]) => void } = {
+      ticketNumber: setTicketNumber,
+      testId: setTestId,
+      projectName: setProjectName,
+      testName: setTestName,
+      scenarioType: setScenarioType,
+      tagsText: setTagsText,
+      priority: setPriority,
+      owner: setOwner
+    };
+    setters[key](value);
+  };
+
+  function applyDraftFields(d: DraftFields) {
+    setTicketNumber(d.ticketNumber);
+    setTestId(d.testId);
+    setProjectName(d.projectName);
+    setTestName(d.testName);
+    setObjectContext(d.objectContext);
+    setScenarioType(d.scenarioType);
+    setManualSteps(d.manualSteps);
+    setTagsText(d.tagsText);
+    setPriority(d.priority);
+    setOwner(d.owner);
+    setDataRows(d.dataRows);
+  }
+
+  // Keep a per-test draft in localStorage while there are unsaved changes
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (isDirty) writeDraft(testId, currentDraft);
+      else clearDraft(testId);
+    }, 600);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSnapshot, isDirty, testId]);
+
+  // Warn before closing the tab with unsaved changes
+  useEffect(() => {
+    if (!isDirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
+
+  /** Runs `proceed` now, or after Save / Discard when the current test has unsaved changes. */
+  const guardLeave = (proceed: () => void) => {
+    if (!isDirty) {
+      proceed();
+      return;
+    }
+    setLeaveGate({ proceed });
+  };
+
+  /** Production orgs: type the alias once per session before anything that runs, saves or schedules tests. */
+  function ensureProdConfirmed(what: string): Promise<boolean> {
+    if (orgEnv !== 'production') return Promise.resolve(true);
+    try {
+      if (sessionStorage.getItem(`orgwright.prodConfirmed.${selectedOrg}`) === '1') return Promise.resolve(true);
+    } catch {}
+    setProdTyped('');
+    return new Promise((resolve) => setProdGate({ what, resolve }));
+  }
+
+  /** Step check found errors: Fix first / Run anyway. */
+  const ensureStepsOk = (): Promise<boolean> => {
+    if (stepCheckSummary.errors === 0) return Promise.resolve(true);
+    return new Promise((resolve) => setRunGate({ resolve }));
+  };
+
+  const requestRun = async (stepsOverride?: string) => {
+    if (isRunning || isRecording) return;
+    if (!(await ensureProdConfirmed('run this test'))) return;
+    if (stepsOverride === undefined && !(await ensureStepsOk())) return;
+    handleExecute(stepsOverride);
+  };
+  const requestRunRef = useRef(requestRun);
+  requestRunRef.current = requestRun;
+
+  const stage = deriveStage({
+    isRecording,
+    isRunning,
+    isBatchRunning,
+    isPaused,
+    repair,
+    pausedStepIndex,
+    runStatus,
+    stepCheck: stepCheckSummary,
+    hasSteps: manualSteps.trim().length > 0
+  });
+
+  const handlePrimaryAction = () => {
+    switch (stage.primaryAction) {
+      case 'run':
+        requestRun();
+        break;
+      case 'retry':
+        if (repair) sendRepair('retry', repair.capturedStep || repair.step);
+        break;
+      case 'fix':
+        setFocusRequest({ nonce: Date.now(), firstError: true });
+        break;
+      case 'stop-recording':
+        handleToggleRecording();
+        break;
+      case 'resume':
+        handleResumeExecution();
+        break;
+      default:
+        break;
+    }
+  };
+  const primaryRef = useRef(handlePrimaryAction);
+  primaryRef.current = handlePrimaryAction;
+  const saveRef = useRef(handleSaveTestCase);
+  saveRef.current = handleSaveTestCase;
+
+  // Developer mode groups Plan / Automation spec / Console under one Code tab
+  const isCodeTab = activeTab === 'plan' || activeTab === 'code' || activeTab === 'terminal';
+  useEffect(() => {
+    if (activeTab === 'plan' || activeTab === 'code' || activeTab === 'terminal') setLastCodeSubTab(activeTab);
+  }, [activeTab]);
+  // Tester mode has no Code tab: fall back to Results
+  useEffect(() => {
+    if (isTesterMode && isCodeTab) setActiveTab('logs');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTesterMode]);
+
+  // Ctrl+Enter runs (or retries / resumes); Ctrl+S saves
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        primaryRef.current();
+      } else if (e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Mirror run state in the browser tab title
+  useEffect(() => {
+    let state = '';
+    if (isRecording) state = '● Recording';
+    else if (repair) state = `⏸ Paused at step ${repair.stepIndex}`;
+    else if (isRunning) state = isPaused ? '⏸ Paused' : '▶ Running';
+    else if (runStatus === 'passed') state = '✓ Passed';
+    else if (runStatus === 'failed') state = '✗ Failed';
+    else if (runStatus === 'interrupted') state = '■ Stopped';
+    document.title = `${isDirty ? '• ' : ''}${state ? `${state} · ` : ''}${testId || 'New test'} · Orgwright Studio`;
+  }, [isRecording, repair, isRunning, isPaused, runStatus, testId, isDirty]);
+
+  // Wizard without an org: load demo steps so the editor can be explored
+  const handleWizardDemo = () => {
+    setShowWizard(false);
+    try {
+      localStorage.setItem('orgwright.onboarded', '1');
+    } catch {}
+    guardLeave(() => {
+      handleNewTestCase();
+      setTestName('Demo: create an Account');
+      setObjectContext('Account');
+      setManualSteps(SAMPLE_STEPS);
+      setActiveTab('suite');
+      showToast({ message: 'Demo steps loaded. Connect an org to check fields and run them.' });
+    });
+  };
+
+  const runCtx = { ...run, stage };
+
   return (
+    <RunContext.Provider value={runCtx}>
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
-      {/* ENTERPRISE TOP NAVIGATION BAR */}
-      <header className="border-b border-slate-200/90 bg-white sticky top-0 z-50 shadow-2xs">
-        <div className="max-w-[1920px] mx-auto px-5 py-2.5 flex items-center justify-between">
-          {/* Left: Brand + Project Context */}
-          <div className="flex items-center space-x-3">
-            <img
-              src="/logo-icon.png"
-              alt="OrgWright"
-              className="h-8 w-8 rounded-lg object-contain shadow-xs border border-slate-200 bg-white"
-              onError={(e) => {
-                // Fallback if image not yet loaded
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-base text-slate-900 tracking-tight">
-                OrgWright <span className="text-blue-600 font-semibold">Studio</span>
-              </span>
-            </div>
-
-            {/* Subtle Divider */}
-            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
-
-            {/* Project Context Breadcrumb */}
-            <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-500">
-              <span className="text-slate-400">Project:</span>
-              <span className="font-semibold text-slate-800 truncate max-w-[200px]" title={projectName}>
-                {projectName}
-              </span>
-            </div>
-          </div>
-
-          {/* Center: Live Execution & Recording Status */}
-          <div className="hidden xl:flex items-center">
-            {isRecording ? (
-              <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold animate-pulse shadow-2xs">
-                <span className="h-2 w-2 rounded-full bg-rose-600" />
-                <span>Recording ({recordedStepsCount} steps)</span>
-              </div>
-            ) : runStatus === 'running' ? (
-              <div className="flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold animate-pulse shadow-2xs">
-                <span className="h-2 w-2 rounded-full bg-blue-600 animate-ping" />
-                <span>Running test…</span>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Right: Consolidated Enterprise Controls */}
-          <div className="flex items-center space-x-2">
-            {/* Tester / Developer mode */}
-            <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50/80 p-0.5 text-[11px] font-semibold" role="group" aria-label="Studio mode">
-              <button
-                type="button"
-                onClick={() => setUiMode('tester')}
-                className={`px-2 py-1 rounded-md cursor-pointer transition ${isTesterMode ? 'bg-white text-blue-700 shadow-2xs border border-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
-                title="Simple view for writing and running tests"
-              >
-                Tester
-              </button>
-              <button
-                type="button"
-                onClick={() => setUiMode('developer')}
-                className={`px-2 py-1 rounded-md cursor-pointer transition ${!isTesterMode ? 'bg-white text-indigo-700 shadow-2xs border border-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
-                title="Show plan, generated code, console and QA hub"
-              >
-                Developer
-              </button>
-            </div>
-            {/* Org Connector & Active Environment */}
-            <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50/80 shadow-2xs divide-x divide-slate-200">
-              <button
-                type="button"
-                onClick={() => setShowOrgConnectorModal(true)}
-                className="flex items-center space-x-2 px-2.5 py-1.5 hover:bg-slate-100 text-xs text-slate-700 transition cursor-pointer rounded-l-lg"
-                title="Manage Salesforce Org Connections (Click to open Org Connector)"
-              >
-                <div className={`h-2 w-2 rounded-full ${orgStatus?.connected ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                <span className="font-semibold text-slate-900">{selectedOrg}</span>
-                <span className="px-1.5 py-0.2 rounded text-[11px] font-medium bg-white text-slate-600 border border-slate-200">
-                  {(() => {
-                    const org = orgList.find(o => o.alias === selectedOrg);
-                    if (org?.isSandbox) return 'Sandbox';
-                    // Developer Edition orgs live on *.develop.my.salesforce.com
-                    if (/\.develop\.my\.salesforce\.com|dev-ed/i.test((org as { instanceUrl?: string } | undefined)?.instanceUrl || '')) return 'Developer';
-                    return 'Prod';
-                  })()}
-                </span>
-                <ChevronDown className="h-3 w-3 text-slate-400 ml-0.5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleRefreshOrg(selectedOrg)}
-                disabled={isConnectingOrg}
-                className="p-1.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition cursor-pointer rounded-r-lg"
-                title="Refresh Org Metadata & Latency"
-              >
-                <RefreshCw className={`h-3 w-3 ${isConnectingOrg ? 'animate-spin text-blue-600' : ''}`} />
-              </button>
-            </div>
-
-            {/* Persona Selector Dropdown */}
-            <div className="relative" ref={personaDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setShowPersonaDropdown((prev) => !prev)}
-                className="flex items-center space-x-2 px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-800 font-medium transition shadow-2xs cursor-pointer"
-                title="Select Salesforce User Persona"
-              >
-                <UserCheck className="h-3.5 w-3.5 text-blue-600" />
-                <span className="font-semibold text-slate-800 truncate max-w-[110px]">
-                  {selectedPersona?.name || 'Standard User'}
-                </span>
-                <span className="px-1.5 py-0.2 rounded text-[11px] bg-slate-100 text-slate-600 border border-slate-200 font-mono truncate max-w-[80px]">
-                  {selectedPersona?.profileName?.replace(/Profile/i, '').trim() || 'Admin'}
-                </span>
-                <ChevronDown className="h-3 w-3 text-slate-400" />
-              </button>
-
-            {/* Persona Dropdown Popover */}
-            {showPersonaDropdown && (
-              <div className="absolute right-0 mt-2 w-96 bg-white border border-slate-200 rounded-lg shadow-xl p-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
-                  <div className="flex items-center space-x-1.5">
-                    <UserCheck className="h-4 w-4 text-blue-600" />
-                    <span className="text-xs font-semibold text-slate-900 uppercase tracking-wider">Select User Persona</span>
-                  </div>
-                  <span className="text-[11px] text-slate-500">{orgUsers.length} Users Found</span>
-                </div>
-
-                {/* Search input */}
-                <div className="relative mb-2">
-                  <Search className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search by name, username, or profile..."
-                    value={personaSearchQuery}
-                    onChange={(e) => setPersonaSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white"
-                  />
-                </div>
-
-                {/* Profile quick-filter pills */}
-                <div className="flex items-center space-x-1 overflow-x-auto pb-2 mb-2 scrollbar-none text-[11px]">
-                  {['All', ...Array.from(new Set(orgUsers.map((u) => u.profileName))).filter(Boolean).slice(0, 5)].map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => setSelectedProfileFilter(p)}
-                      className={`px-2 py-0.5 rounded-full whitespace-nowrap transition ${
-                        selectedProfileFilter === p
-                          ? 'bg-blue-600 text-white font-medium shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                </div>
-
-                {/* User List */}
-                <div className="max-h-60 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                  {orgUsers
-                    .filter((u) => {
-                      const q = personaSearchQuery.toLowerCase();
-                      const matchQuery =
-                        u.name.toLowerCase().includes(q) ||
-                        u.username.toLowerCase().includes(q) ||
-                        u.profileName.toLowerCase().includes(q);
-                      const matchProf = selectedProfileFilter === 'All' || u.profileName === selectedProfileFilter;
-                      return matchQuery && matchProf;
-                    })
-                    .map((user) => {
-                      const isSelected = selectedPersona?.id === user.id;
-                      return (
-                        <div
-                          key={user.id}
-                          onClick={() => {
-                            setSelectedPersona(user);
-                            setShowPersonaDropdown(false);
-                          }}
-                          className={`p-2 rounded-lg cursor-pointer flex items-center justify-between transition ${
-                            isSelected
-                              ? 'bg-blue-50 border border-blue-200 text-blue-900'
-                              : 'hover:bg-slate-50 border border-transparent text-slate-800'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2 min-w-0">
-                            <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                              {user.name.charAt(0)}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center space-x-1.5">
-                                <span className="text-xs font-semibold text-slate-900 truncate">{user.name}</span>
-                                {user.isDefault && (
-                                  <span className="px-1 rounded text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold">
-                                    Default
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-2 text-[11px] text-slate-500">
-                                <span className="text-blue-700 font-mono">{user.profileName}</span>
-                                <span>•</span>
-                                <span className="truncate max-w-[140px] text-slate-500">{user.username}</span>
-                              </div>
-                            </div>
-                          </div>
-                          {isSelected && <Check className="h-4 w-4 text-blue-600 flex-shrink-0" />}
-                        </div>
-                      );
-                    })}
-                </div>
-
-                {/* Footer refresh */}
-                <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500">Connected: {selectedOrg}</span>
-                  <button
-                    type="button"
-                    onClick={() => fetchOrgUsers(selectedOrg, true)}
-                    disabled={isLoadingUsers}
-                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 font-medium transition"
-                  >
-                    <RefreshCw className={`h-3 w-3 ${isLoadingUsers ? 'animate-spin' : ''}`} />
-                    <span>Sync Org Users</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Multi-User Matrix Runner Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setShowMatrixModal(true);
-              if (orgUsers.length <= 1) fetchOrgUsers(selectedOrg);
-            }}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium transition shadow-xs cursor-pointer"
-            title="Execute test case across multiple user personas simultaneously"
-          >
-            <Users className="h-3.5 w-3.5 text-indigo-600" />
-            <span>Multi-User Matrix</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
-              {selectedMatrixUserIds.length}
-            </span>
-          </button>
-        </div>
-      </div>
-    </header>
+      <Header
+        projectName={projectName}
+        selectedOrg={selectedOrg}
+        orgConnected={Boolean(orgStatus?.connected)}
+        orgEnv={orgEnv}
+        orgEnvLabel={orgEnvLabel}
+        isConnectingOrg={isConnectingOrg}
+        onOpenConnector={() => setShowOrgConnectorModal(true)}
+        onRefreshOrg={() => handleRefreshOrg(selectedOrg)}
+        orgUsers={orgUsers}
+        selectedPersona={selectedPersona}
+        onSelectPersona={(u) => {
+          setSelectedPersona(u);
+          showToast({ message: `Tests now run as ${u.name} (${u.profileName}).`, tone: 'success' });
+        }}
+        isLoadingUsers={isLoadingUsers}
+        onSyncUsers={() => fetchOrgUsers(selectedOrg, true)}
+        uiMode={uiMode}
+        setUiMode={setUiMode}
+        onOpenQaHub={() => setActiveTab('qa-hub')}
+        onOpenWizard={() => setShowWizard(true)}
+        onOpenPhrasebook={() => setOpenCheatSheetNonce((n) => n + 1)}
+        onOpenShortcuts={() => setShowShortcuts(true)}
+        isDirty={isDirty}
+      />
+      <RunStatusStrip
+        isProduction={orgEnv === 'production'}
+        selectedOrg={selectedOrg}
+        activeTab={activeTab}
+        onGoToFix={() => setActiveTab('browser')}
+        onOpenLive={() => setActiveTab('browser')}
+        onStop={handleStopExecution}
+      />
 
       {/* Main Container */}
       <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-[1850px] w-full mx-auto">
-        {/* Left Column: Test Case Builder Form (5 cols) */}
+        {/* Left Column: steps-first test card (5 cols) */}
         <div className="lg:col-span-5 flex flex-col space-y-4">
-          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="h-4 w-4 text-blue-600" />
-                <h2 className="text-sm font-semibold text-slate-900">Test case</h2>
-              </div>
-
-              {/* Action buttons in header: Standard Library, + New Test Case & Quick Jump */}
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowTemplateLibraryModal(true)}
-                  className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-semibold transition cursor-pointer shadow-2xs"
-                  title="Browse, search, and load standard Salesforce test templates"
-                >
-                  <BookOpen className="h-3.5 w-3.5 text-blue-600" />
-                  <span>Standard Tests</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleNewTestCase}
-                  className="flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-medium transition cursor-pointer"
-                  title="Create fresh blank test case"
-                >
-                  <Plus className="h-3.5 w-3.5 text-slate-500" />
-                  <span>New Test</span>
-                </button>
-
-                {/* Quick select saved test case */}
-                <div className="flex items-center space-x-1">
-                  <select
-                    className="bg-white border border-slate-300 rounded text-xs text-slate-800 px-2 py-1 outline-none focus:border-blue-500 cursor-pointer max-w-[150px] truncate shadow-xs"
-                    onChange={(e) => {
-                      const found = testCases.find((tc) => tc.id === e.target.value);
-                      if (found) handleLoadTestCase(found);
-                    }}
-                    value={testId}
-                  >
-                    {testCases.map((tc) => (
-                      <option key={tc.id} value={tc.id}>
-                        {tc.id}: {tc.testName.slice(0, 22)}...
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Inputs Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Ticket Number</label>
-                <input
-                  type="text"
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 font-mono shadow-xs"
-                  value={ticketNumber}
-                  onChange={(e) => setTicketNumber(e.target.value)}
-                  placeholder="e.g. CRM-101"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Test Case ID</label>
-                <input
-                  type="text"
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 font-mono shadow-xs"
-                  value={testId}
-                  onChange={(e) => setTestId(e.target.value)}
-                  placeholder="e.g. TC_001"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">Project Name</label>
-                <input
-                  type="text"
-                  list="project-suggestions"
-                  className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 shadow-xs"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  placeholder="e.g. Sales Cloud Implementation"
-                />
-                <datalist id="project-suggestions">
-                  {distinctProjects.map((p) => (
-                    <option key={p} value={p} />
-                  ))}
-                </datalist>
-              </div>
-
-              {/* Scenario Classification Selector (Replaces Object Reference) */}
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1.5">Scenario Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setScenarioType('positive')}
-                    className={`flex items-center justify-center space-x-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition cursor-pointer ${
-                      scenarioType === 'positive'
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-xs ring-1 ring-emerald-500'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span>Positive Scenario</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScenarioType('negative')}
-                    className={`flex items-center justify-center space-x-1.5 py-2 px-3 rounded-lg border text-xs font-semibold transition cursor-pointer ${
-                      scenarioType === 'negative'
-                        ? 'bg-rose-50 border-rose-500 text-rose-800 shadow-xs ring-1 ring-rose-500'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="h-2 w-2 rounded-full bg-rose-500" />
-                    <span>Negative Scenario</span>
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  {scenarioType === 'positive'
-                    ? 'Happy path: the record saves and the flow completes.'
-                    : 'Error path: validation rules, required fields, read-only fields and permissions.'}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">Test name</label>
-              <input
-                type="text"
-                className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 shadow-xs"
-                value={testName}
-                onChange={(e) => setTestName(e.target.value)}
-                placeholder="e.g. Verify Account Creation and Required Fields Validation"
+          <TestCard
+            meta={{ ticketNumber, testId, projectName, testName, scenarioType, tagsText, priority, owner }}
+            onMetaChange={handleMetaChange}
+            isDirty={isDirty}
+            testCases={testCases}
+            distinctProjects={distinctProjects}
+            onOpenStandardTests={() => setShowTemplateLibraryModal(true)}
+            onNewTest={() => guardLeave(handleNewTestCase)}
+            onPickTest={(id) => {
+              const found = testCases.find((tc) => tc.id === id);
+              if (found) guardLeave(() => handleLoadTestCase(found));
+            }}
+            activeTab={activeTab}
+            onOpenLiveBrowser={() => setActiveTab('browser')}
+            onInsertStepAtPause={() => handleAddStepAtPause()}
+            manualSteps={manualSteps}
+            setManualSteps={setManualSteps}
+            objectContext={objectContext}
+            setObjectContext={setObjectContext}
+            standardObjects={standardObjects}
+            customObjects={customObjects}
+            selectedOrg={selectedOrg}
+            dataColumns={dataColumns}
+            onSummaryChange={setStepCheckSummary}
+            stepCheckSummary={stepCheckSummary}
+            focusRequest={focusRequest}
+            openCheatSheetNonce={openCheatSheetNonce}
+            runMarkers={{
+              liveStepText: isRunning && !isBatchRunning && (!run.runTestId || run.runTestId === testId) ? liveStep : undefined,
+              results:
+                executionLogReport && executionLogReport.testId === testId && !isRunning
+                  ? executionLogReport.steps.map((st) => ({ stepIndex: st.stepIndex, stepText: st.stepText, status: st.status }))
+                  : undefined
+            }}
+            dataRows={dataRows}
+            setDataRows={setDataRows}
+            headed={headed}
+            setHeaded={setHeaded}
+            pauseOnFailure={pauseOnFailure}
+            setPauseOnFailure={setPauseOnFailure}
+            selectedBrowser={selectedBrowser}
+            setSelectedBrowser={setSelectedBrowser}
+            runBar={
+              <RunBar
+                onPrimary={handlePrimaryAction}
+                onSave={() => {
+                  handleSaveTestCase();
+                }}
+                isSaving={isSaving}
+                isDirty={isDirty}
+                onRecord={handleToggleRecording}
+                onPause={handlePauseExecution}
+                onStop={handleStopExecution}
+                onFailRepair={() => sendRepair('fail')}
+                onOpenMatrix={() => {
+                  setShowMatrixModal(true);
+                  if (orgUsers.length <= 1 && selectedOrg) fetchOrgUsers(selectedOrg);
+                }}
+                matrixCount={selectedMatrixUserIds.length}
+                isTesterMode={isTesterMode}
+                onResolve={handleResolve}
+                isResolving={isResolving}
+                onGenerate={handleGenerate}
+                isGenerating={isGenerating}
               />
-            </div>
-
-            {/* Suite organisation: tags, priority, owner */}
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1" htmlFor="tc-tags">Tags</label>
-                <input
-                  id="tc-tags"
-                  type="text"
-                  list="orgwright-known-tags"
-                  className="w-full bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-500"
-                  value={tagsText}
-                  onChange={(e) => setTagsText(e.target.value)}
-                  placeholder="Smoke, Regression, Release 26.4"
-                />
-                <datalist id="orgwright-known-tags">
-                  {[...new Set(testCases.flatMap((t) => t.tags || []))].map((t) => (
-                    <option key={t} value={t} />
-                  ))}
-                </datalist>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1" htmlFor="tc-priority">Priority</label>
-                <select
-                  id="tc-priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
-                  className="bg-white border border-slate-300 rounded-md px-2 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-500"
-                >
-                  <option>High</option>
-                  <option>Medium</option>
-                  <option>Low</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1" htmlFor="tc-owner">Owner</label>
-                <input
-                  id="tc-owner"
-                  type="text"
-                  className="w-36 bg-white border border-slate-300 rounded-md px-3 py-2 text-[13px] text-slate-900 focus:outline-none focus:border-blue-500"
-                  value={owner}
-                  onChange={(e) => setOwner(e.target.value)}
-                  placeholder="Name"
-                />
-              </div>
-            </div>
-
-            {/* Test Steps Header with Live Interaction Recorder Button */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center space-x-2">
-                  <label className="text-xs font-semibold text-slate-700">Steps</label>
-                  {isRecording && (
-                    <span className="flex items-center space-x-1 px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[11px] font-semibold border border-rose-200 animate-pulse">
-                      <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
-                      <span>Recording Live ({recordedStepsCount})</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Primary Live Recorder Button */}
-                <button
-                  type="button"
-                  onClick={handleToggleRecording}
-                  disabled={isStartingRecorder}
-                  className={`flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer shadow-xs ${
-                    isRecording
-                      ? 'bg-rose-600 hover:bg-rose-700 text-white animate-pulse'
-                      : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
-                  }`}
-                  title="Click to interact directly with Salesforce in browser. Your clicks, dropdown selections, input typing, and scrolling are automatically turned into test steps!"
-                >
-                  {isStartingRecorder ? (
-                    <RefreshCw className="h-3 w-3 animate-spin" />
-                  ) : isRecording ? (
-                    <Square className="h-3 w-3 fill-current" />
-                  ) : (
-                    <Disc className="h-3 w-3 text-rose-600" />
-                  )}
-                  <span>{isRecording ? 'Stop recording' : 'Record'}</span>
-                </button>
-              </div>
-
-              {/* Paused Mode Callout & Step Insertion */}
-              {isPaused && !repair && (
-                <div className="mb-2 p-2.5 bg-amber-50 border border-amber-300 rounded-lg flex items-center justify-between text-xs text-amber-900 shadow-2xs">
-                  <div className="flex items-center space-x-2 truncate mr-2">
-                    <Pause className="h-4 w-4 text-amber-600 flex-shrink-0 animate-pulse" />
-                    <div className="truncate">
-                      <div className="font-semibold text-amber-900">
-                        Execution Paused {pausedStepIndex !== null ? `at Step ${pausedStepIndex}` : ''}
-                      </div>
-                      <div className="text-[11px] text-amber-700 truncate">
-                        Add or edit steps below. Clicking Resume will continue execution with new steps.
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddStepAtPause()}
-                    className="px-2.5 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-medium text-[11px] flex items-center space-x-1 flex-shrink-0 cursor-pointer shadow-xs"
-                    title="Insert a new step right at the current pause position"
-                  >
-                    <Plus className="h-3 w-3" />
-                    <span>Insert Step</span>
-                  </button>
-                </div>
-              )}
-
-              {repair && (
-                <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px]">
-                  <span className="text-slate-800">
-                    <strong>Step {repair.stepIndex} failed.</strong> The run is paused so you can fix it.
-                  </span>
-                  {activeTab !== 'browser' && (
-                    <button type="button" onClick={() => setActiveTab('browser')} className="h-7 rounded-md bg-blue-600 px-2.5 text-xs font-medium text-white hover:bg-blue-700 cursor-pointer flex-shrink-0">
-                      Fix in Live Browser
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Step editor: autocomplete, live step check, cheat sheet */}
-              <StepEditor
-                dataColumns={dataColumns}
-                value={manualSteps}
-                onChange={setManualSteps}
-                objectContext={objectContext}
-                onObjectChange={setObjectContext}
-                standardObjects={standardObjects}
-                customObjects={customObjects}
-                selectedOrg={selectedOrg}
-                isRecording={isRecording}
-                isPaused={isPaused}
-                onSummaryChange={setStepCheckSummary}
-                placeholder={'1. Log in to Salesforce\n2. Open Account list\n3. Click on New button\n4. Enter "Acme {{unique}}" in "Account Name"\n5. Click on Save button\n6. Verify toast "was created"'}
-              />
-
-              {isRecording && (
-                <div className="text-xs text-slate-500 mt-1">Recording: your clicks in the browser are added as steps.</div>
-              )}
-
-              <div className="mt-2">
-                <DataRowsPanel rows={dataRows} onChange={setDataRows} />
-              </div>
-            </div>
-
-            {/* Options & Execution Bar */}
-            <div className="pt-2 border-t border-slate-100 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
-                <div className="flex items-center space-x-3">
-                  <label className="flex items-center space-x-1.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={headed}
-                      onChange={(e) => setHeaded(e.target.checked)}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-0 focus:ring-offset-0"
-                    />
-                    <span className="text-slate-700 font-medium">Headed Browser</span>
-                  </label>
-
-                  <label
-                    className={`flex items-center space-x-1.5 select-none ${headed ? 'cursor-pointer' : 'opacity-50'}`}
-                    title="When a step fails, keep the browser open so you can click the right element and continue"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={pauseOnFailure && headed}
-                      disabled={!headed}
-                      onChange={(e) => setPauseOnFailure(e.target.checked)}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-0 focus:ring-offset-0"
-                    />
-                    <span className="text-slate-700 font-medium">Pause on failure</span>
-                  </label>
-
-                  <div className="flex items-center space-x-1.5 pl-2 border-l border-slate-200">
-                    <span className="text-[11px] text-slate-500">Browser:</span>
-                    <select
-                      value={selectedBrowser}
-                      onChange={(e) => setSelectedBrowser(e.target.value as any)}
-                      className="bg-white border border-slate-300 rounded px-2 py-0.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
-                    >
-                      <option value="chrome">Google Chrome (Default)</option>
-                      <option value="msedge">Microsoft Edge</option>
-                      <option value="chromium">Chromium</option>
-                    </select>
-                  </div>
-                </div>
-
-              </div>
-
-              {stepCheckSummary.errors > 0 && !isRunning && (
-                <div className="flex items-start gap-2 px-2.5 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-[11px] text-rose-800">
-                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                  <span>
-                    {stepCheckSummary.errors} step{stepCheckSummary.errors > 1 ? 's need' : ' needs'} fixing before this test can run correctly
-                    (not understood, or uses a {'{{value}}'} that was never remembered). See Step check above.
-                  </span>
-                </div>
-              )}
-
-              {/* Enterprise Action Toolbar */}
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleSaveTestCase}
-                  className="flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-300 shadow-2xs transition cursor-pointer"
-                  title="Save current test case definition and spec"
-                >
-                  {saved ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Save className="h-3.5 w-3.5 text-slate-500" />}
-                  <span>{saved ? 'Saved!' : 'Save'}</span>
-                </button>
-
-                {!isTesterMode && (
-                <button
-                  type="button"
-                  onClick={handleResolve}
-                  disabled={isResolving}
-                  className="flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-300 shadow-2xs transition cursor-pointer"
-                  title="Resolve manual steps against Salesforce object metadata"
-                >
-                  {isResolving ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" /> : <Layers className="h-3.5 w-3.5 text-slate-500" />}
-                  <span>Resolve Plan</span>
-                </button>
-                )}
-
-                {!isTesterMode && (
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={isGenerating}
-                  className="flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg bg-white hover:bg-indigo-50/50 text-indigo-700 text-xs font-semibold border border-indigo-200 shadow-2xs transition cursor-pointer"
-                  title="Compile steps into automated test spec code"
-                >
-                  {isGenerating ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-600" /> : <Code2 className="h-3.5 w-3.5" />}
-                  <span>Generate Spec</span>
-                </button>
-                )}
-
-                {isRunning ? (
-                  <div className="flex-1 flex items-center space-x-1.5">
-                    {isPaused ? (
-                      <button
-                        type="button"
-                        onClick={handleResumeExecution}
-                        className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition cursor-pointer ring-2 ring-emerald-400/50 animate-pulse"
-                        title="Resume testing from current step"
-                      >
-                        <Play className="h-3.5 w-3.5 fill-current" />
-                        <span>Resume Run</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handlePauseExecution}
-                        className="flex-1 flex items-center justify-center space-x-1.5 px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
-                        title="Pause live automation execution to enter values or add steps"
-                      >
-                        <Pause className="h-3.5 w-3.5 fill-current" />
-                        <span>Pause Run</span>
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleStopExecution}
-                      disabled={isStopping}
-                      className="flex items-center justify-center space-x-1 px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
-                      title="Stop running live automation immediately"
-                    >
-                      {isStopping ? (
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Square className="h-3.5 w-3.5 fill-current" />
-                      )}
-                      <span>{isStopping ? 'Stopping...' : 'Stop'}</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    ref={runButtonRef}
-                    type="button"
-                    onClick={handleExecute}
-                    disabled={isRecording}
-                    className="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
-                    title={isTesterMode ? 'Check the steps, build the automation and run it in the browser' : 'Run live automated execution in browser'}
-                  >
-                    <Play className="h-3.5 w-3.5 fill-current" />
-                    <span>{isTesterMode ? 'Run Test' : 'Run Live'}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+            }
+          />
         </div>
 
         {/* Right Column: Interactive Studio Inspector & Execution Hub (7 cols) */}
         <div className="lg:col-span-7 flex flex-col space-y-4">
-          <div className="bg-white border border-slate-200 rounded-lg flex-1 flex flex-col overflow-hidden shadow-xs min-h-[660px]">
+          <div className="bg-white border border-border rounded-lg flex-1 flex flex-col overflow-hidden shadow-xs min-h-[660px]">
             {/* Tabs Header */}
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 bg-slate-50/80">
-              <div className="flex items-center space-x-1 overflow-x-auto">
+            <div className="flex items-center justify-between border-b border-border px-4 bg-slate-50/80">
+              <div className="flex items-center space-x-1 overflow-x-auto" role="tablist" aria-label="Test workspace" onKeyDown={onTabListKeyDown}>
                 {/* 1. Test Suite & Regression Tab */}
                 <button
                   type="button"
                   onClick={() => setActiveTab('suite')}
+                  role="tab"
+                  id="tab-suite"
+                  aria-controls="tabpanel-main"
+                  aria-selected={activeTab === 'suite'}
+                  tabIndex={activeTab === 'suite' ? 0 : -1}
                   className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
                     activeTab === 'suite'
-                      ? 'border-blue-600 text-blue-600 font-semibold bg-white'
+                      ? 'border-primary text-primary font-semibold bg-white'
                       : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
                   }`}
                 >
-                  <FolderGit2 className="h-3.5 w-3.5 text-blue-600" />
+                  <FolderGit2 className="h-3.5 w-3.5 text-primary" />
                   <span>Test Suite</span>
-                  <span className="px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700 text-[11px] font-semibold border border-slate-200">
+                  <span className="px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold border border-border">
                     {testCases.length}
                   </span>
                 </button>
 
-                {/* 2. Resolved Plan Tab */}
+                {/* 2. Code (developer mode): Plan, Automation Spec and Console as sub-tabs */}
                 {!isTesterMode && (
                 <button
                   type="button"
-                  onClick={() => setActiveTab('plan')}
+                  onClick={() => setActiveTab(lastCodeSubTab)}
+                  role="tab"
+                  id="tab-code"
+                  aria-controls="tabpanel-main"
+                  aria-selected={isCodeTab}
+                  tabIndex={isCodeTab ? 0 : -1}
                   className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
-                    activeTab === 'plan'
-                      ? 'border-blue-600 text-blue-600 font-semibold bg-white'
+                    isCodeTab
+                      ? 'border-primary text-primary font-semibold bg-white'
                       : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
                   }`}
                 >
-                  <Layers className="h-3.5 w-3.5" />
-                  <span>Plan ({resolvedSteps.length})</span>
-                </button>
-                )}
-
-                {/* 3. Automation Spec Tab */}
-                {!isTesterMode && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('code')}
-                  className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
-                    activeTab === 'code'
-                      ? 'border-blue-600 text-blue-600 font-semibold bg-white'
-                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-                  }`}
-                >
-                  <FileCode className="h-3.5 w-3.5" />
-                  <span>Automation Spec</span>
+                  <FileCode className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Code</span>
+                  {runStatus === 'running' && <span className="h-2 w-2 rounded-full bg-amber-500 motion-safe:animate-pulse ml-0.5" title="Console is streaming" />}
                   {isCodeEdited && (
                     <span className="h-2 w-2 rounded-full bg-amber-500 ml-0.5" title="Script has manual edits" />
                   )}
@@ -2539,9 +2377,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('browser')}
+                  role="tab"
+                  id="tab-browser"
+                  aria-controls="tabpanel-main"
+                  aria-selected={activeTab === 'browser'}
+                  tabIndex={activeTab === 'browser' ? 0 : -1}
                   className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
                     activeTab === 'browser'
-                      ? 'border-blue-600 text-blue-600 font-semibold bg-white'
+                      ? 'border-primary text-primary font-semibold bg-white'
                       : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
                   }`}
                 >
@@ -2559,9 +2402,14 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('logs')}
+                  role="tab"
+                  id="tab-logs"
+                  aria-controls="tabpanel-main"
+                  aria-selected={activeTab === 'logs'}
+                  tabIndex={activeTab === 'logs' ? 0 : -1}
                   className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
                     activeTab === 'logs'
-                      ? 'border-blue-600 text-blue-600 font-semibold bg-white'
+                      ? 'border-primary text-primary font-semibold bg-white'
                       : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
                   }`}
                 >
@@ -2569,10 +2417,10 @@ export default function App() {
                   <span>Results</span>
                   {executionLogReport && (
                     <span
-                      className={`px-1.5 py-0.2 rounded-full text-[11px] font-mono border ${
+                      className={`px-1.5 py-0.2 rounded-full text-xs font-mono border ${
                         executionLogReport.status === 'passed'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                          ? 'bg-success-soft text-success border-emerald-200'
+                          : 'bg-danger-soft text-danger border-rose-200'
                       }`}
                     >
                       {executionLogReport.steps.length} Steps
@@ -2580,52 +2428,53 @@ export default function App() {
                   )}
                   {executionLogReport?.backendAutomationSummary &&
                     executionLogReport.backendAutomationSummary.totalTriggersFired > 0 && (
-                      <span className="px-1.5 py-0.2 rounded-full text-[11px] bg-amber-50 text-amber-700 border border-amber-200 font-mono">
+                      <span className="px-1.5 py-0.2 rounded-full text-xs bg-warning-soft text-warning border border-amber-200 font-mono">
                         {executionLogReport.backendAutomationSummary.totalTriggersFired} Triggers
                       </span>
                     )}
                 </button>
 
-                {/* 6. QA Standards & Skills Hub (petrkindlmann) */}
-                {!isTesterMode && (
+                {/* History of the open test */}
                 <button
                   type="button"
-                  onClick={() => setActiveTab('qa-hub')}
-                  className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
-                    activeTab === 'qa-hub'
-                      ? 'border-emerald-600 text-emerald-700 font-semibold bg-white'
+                  onClick={() => setActiveTab('history')}
+                  role="tab"
+                  id="tab-history"
+                  aria-controls="tabpanel-main"
+                  aria-selected={activeTab === 'history'}
+                  tabIndex={activeTab === 'history' ? 0 : -1}
+                  disabled={!testId}
+                  className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                    activeTab === 'history'
+                      ? 'border-primary text-primary font-semibold bg-white'
                       : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
                   }`}
                 >
-                  <Award className="h-3.5 w-3.5 text-emerald-600" />
+                  <History className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>History</span>
+                </button>
+
+                {/* 6. QA Skills Hub: opened from the Settings menu, shown while open */}
+                {activeTab === 'qa-hub' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('qa-hub')}
+                  role="tab"
+                  id="tab-qa-hub"
+                  aria-controls="tabpanel-main"
+                  aria-selected={activeTab === 'qa-hub'}
+                  tabIndex={activeTab === 'qa-hub' ? 0 : -1}
+                  className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
+                    activeTab === 'qa-hub'
+                      ? 'border-emerald-600 text-success font-semibold bg-white'
+                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
+                  }`}
+                >
+                  <Award className="h-3.5 w-3.5 text-success" />
                   <span>QA Skills Hub</span>
                 </button>
                 )}
 
-                {/* 7. Terminal Console Tab */}
-                {!isTesterMode && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('terminal')}
-                  className={`flex items-center space-x-2 py-3 px-3 text-xs font-medium border-b-2 transition cursor-pointer ${
-                    activeTab === 'terminal'
-                      ? 'border-blue-600 text-blue-600 font-semibold bg-white'
-                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-                  }`}
-                >
-                  <Terminal className="h-3.5 w-3.5" />
-                  <span>Console</span>
-                  {runStatus === 'running' && (
-                    <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-1" />
-                  )}
-                  {runStatus === 'passed' && (
-                    <span className="h-2 w-2 rounded-full bg-emerald-500 ml-1" />
-                  )}
-                  {runStatus === 'failed' && (
-                    <span className="h-2 w-2 rounded-full bg-rose-500 ml-1" />
-                  )}
-                </button>
-                )}
               </div>
 
               {/* Status or actions */}
@@ -2636,7 +2485,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={handleResetCode}
-                        className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition shadow-2xs cursor-pointer"
+                        className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs bg-white hover:bg-slate-50 text-slate-700 border border-border transition shadow-2xs cursor-pointer"
                         title="Revert edits back to generated code"
                       >
                         <RotateCcw className="h-3 w-3" />
@@ -2646,18 +2495,19 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleCopy}
-                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition shadow-2xs cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs bg-white hover:bg-slate-50 text-slate-700 border border-border transition shadow-2xs cursor-pointer"
                     >
-                      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-400" />}
+                      {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3 text-slate-400" />}
                       <span>{copied ? 'Copied' : 'Copy'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={handleSaveTestCase}
-                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-medium transition shadow-2xs cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg text-xs bg-primary-soft hover:bg-blue-100 text-primary-hover border border-blue-200 font-medium transition shadow-2xs cursor-pointer"
                     >
-                      {saved ? <Check className="h-3 w-3 text-emerald-600" /> : <Save className="h-3 w-3 text-blue-500" />}
-                      <span>{saved ? 'Saved!' : 'Save'}</span>
+                      <Save className="h-3 w-3 text-blue-500" aria-hidden="true" />
+                      <span>Save</span>
+                      {isDirty && <span className="h-2 w-2 rounded-full bg-amber-500" aria-label="unsaved changes" />}
                     </button>
                   </>
                 )}
@@ -2667,15 +2517,15 @@ export default function App() {
                     <button
                       type="button"
                       onClick={handleCopyCmd}
-                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-medium transition shadow-2xs cursor-pointer"
+                      className="flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-border text-xs font-medium transition shadow-2xs cursor-pointer"
                       title="Copy command to run in your terminal"
                     >
-                      {copiedCmd ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3 text-slate-400" />}
+                      {copiedCmd ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3 text-slate-400" />}
                       <span>Copy CLI Command</span>
                     </button>
 
                     {runDuration && (
-                      <span className="text-slate-500 flex items-center space-x-1 text-xs font-mono">
+                      <span className="text-muted flex items-center space-x-1 text-xs font-mono">
                         <Clock className="h-3 w-3 text-slate-400" />
                         <span>{(runDuration / 1000).toFixed(1)}s</span>
                       </span>
@@ -2686,18 +2536,18 @@ export default function App() {
                         onClick={() => {
                           if (runStatus === 'failed') setShowFailureModal(true);
                         }}
-                        className={`px-2.5 py-0.5 rounded-full font-semibold text-[11px] uppercase transition cursor-pointer ${
+                        className={`px-2.5 py-0.5 rounded-full font-semibold text-xs uppercase transition cursor-pointer ${
                           runStatus === 'passed'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            ? 'bg-success-soft text-success border border-emerald-200'
                             : runStatus === 'failed'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 flex items-center space-x-1 shadow-2xs animate-pulse'
-                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                            ? 'bg-danger-soft text-danger border border-rose-200 hover:bg-rose-100 flex items-center space-x-1 shadow-2xs animate-pulse'
+                            : 'bg-primary-soft text-primary-hover border border-blue-200'
                         }`}
                         title={runStatus === 'failed' ? 'Click to open Failure Reason Analysis' : ''}
                       >
-                        {runStatus === 'failed' && <AlertTriangle className="h-3 w-3 inline text-rose-600 mr-1" />}
+                        {runStatus === 'failed' && <AlertTriangle className="h-3 w-3 inline text-danger mr-1" />}
                         <span>{runStatus}</span>
-                        {runStatus === 'failed' && <span className="text-[11px] lowercase text-rose-600 font-normal ml-1">· View Reason</span>}
+                        {runStatus === 'failed' && <span className="text-xs lowercase text-danger font-normal ml-1">· View Reason</span>}
                       </span>
                     )}
                   </div>
@@ -2706,7 +2556,31 @@ export default function App() {
             </div>
 
             {/* Tab Contents */}
-            <div className="flex-1 flex flex-col p-4 overflow-auto">
+            <div className="flex-1 flex flex-col p-4 overflow-auto" role="tabpanel" id="tabpanel-main" aria-labelledby={isCodeTab ? 'tab-code' : `tab-${activeTab}`}>
+              {isCodeTab && (
+                <div className="mb-3 flex items-center gap-1 border-b border-border" role="tablist" aria-label="Code views" onKeyDown={onTabListKeyDown}>
+                  {([
+                    ['plan', `Plan (${resolvedSteps.length})`],
+                    ['code', isCodeEdited ? 'Automation spec •' : 'Automation spec'],
+                    ['terminal', 'Console']
+                  ] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === key}
+                      tabIndex={activeTab === key ? 0 : -1}
+                      onClick={() => setActiveTab(key)}
+                      className={`-mb-px border-b-2 px-3 py-1.5 text-xs cursor-pointer ${
+                        activeTab === key ? 'border-primary font-semibold text-primary' : 'border-transparent text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {activeTab === 'history' && <TestHistoryPanel testId={testId} onEditStep={(n) => setFocusRequest({ nonce: Date.now(), stepIndex: n })} />}
               {/* 1. TEST SUITE & REGRESSION CATALOG TAB */}
               {activeTab === 'suite' && (
                 <SuitePanel
@@ -2721,14 +2595,18 @@ export default function App() {
                   isStopping={isStopping}
                   lastSuiteSummary={lastSuiteSummary}
                   onDismissSummary={() => setLastSuiteSummary(null)}
-                  onLoad={(tc) => handleLoadTestCase(tc as TestCaseItem)}
-                  onRunTests={(ids, tag) => handleRunBatch(ids, tag)}
-                  onRunProject={handleRunProjectRegression}
+                  onLoad={(tc) => guardLeave(() => handleLoadTestCase(tc as TestCaseItem))}
+                  onRunTests={async (ids, tag) => {
+                    if (await ensureProdConfirmed('run the selected tests')) handleRunBatch(ids, tag);
+                  }}
+                  onRunProject={async () => {
+                    if (await ensureProdConfirmed('run this project')) handleRunProjectRegression();
+                  }}
                   onStop={handleStopExecution}
-                  onDelete={handleDeleteTestCase}
+                  onDelete={handleDeleteTestCases}
                   onDownloadProof={handleDownloadJiraProof}
                   onImportExcel={() => setShowExcelImportModal(true)}
-                  onExportExcel={handleExportToExcel}
+                  onExportExcel={(ids) => handleExportToExcel(ids)}
                   onDownloadTemplate={handleDownloadSampleExcel}
                   onOpenStandardTests={() => setShowTemplateLibraryModal(true)}
                   onOpenNightly={() => setShowNightly(true)}
@@ -2742,15 +2620,15 @@ export default function App() {
                     <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400">
                       <Layers className="h-10 w-10 mb-2 stroke-1 text-slate-400" />
                       <p className="text-sm font-medium text-slate-700">No Resolved Steps Yet</p>
-                      <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                      <p className="text-xs text-muted mt-1 max-w-sm">
                         Click <strong>"Record"</strong> to record clicks into steps, or click <strong>"Resolve Plan"</strong> to compile manual steps.
                       </p>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto bg-white border border-slate-200 rounded-lg shadow-xs">
+                    <div className="overflow-x-auto bg-white border border-border rounded-lg shadow-xs">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px] tracking-wider font-semibold">
+                          <tr className="bg-slate-50 border-b border-border text-muted uppercase text-xs tracking-wider font-semibold">
                             <th className="py-2.5 px-3">Step</th>
                             <th className="py-2.5 px-3">Original Step Text</th>
                             <th className="py-2.5 px-3">Resolved Action</th>
@@ -2762,12 +2640,12 @@ export default function App() {
                         <tbody className="divide-y divide-slate-100 font-mono">
                           {resolvedSteps.map((step) => (
                             <tr key={step.index} className="hover:bg-slate-50 transition">
-                              <td className="py-2.5 px-3 text-slate-500 font-semibold">{step.index}</td>
+                              <td className="py-2.5 px-3 text-muted font-semibold">{step.index}</td>
                               <td className="py-2.5 px-3 text-slate-800 font-sans max-w-[240px] truncate" title={step.rawText}>
                                 {step.rawText}
                               </td>
                               <td className="py-2.5 px-3">
-                                <span className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-medium">
+                                <span className="px-2 py-0.5 rounded bg-primary-soft border border-blue-200 text-primary-hover font-medium">
                                   {step.action.type}
                                 </span>
                               </td>
@@ -2776,10 +2654,10 @@ export default function App() {
                               </td>
                               <td className="py-2.5 px-3">
                                 <span
-                                  className={`inline-block px-1.5 py-0.5 rounded font-semibold text-[11px] ${
+                                  className={`inline-block px-1.5 py-0.5 rounded font-semibold text-xs ${
                                     step.action.confidence >= 0.90
-                                      ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
-                                      : 'text-amber-700 bg-amber-50 border border-amber-200'
+                                      ? 'text-success bg-success-soft border border-emerald-200'
+                                      : 'text-warning bg-warning-soft border border-amber-200'
                                   }`}
                                 >
                                   {Math.round(step.action.confidence * 100)}%
@@ -2787,12 +2665,12 @@ export default function App() {
                               </td>
                               <td className="py-2.5 px-3 text-right">
                                 {step.status === 'resolved' ? (
-                                  <span className="inline-flex items-center text-emerald-600 space-x-1 font-semibold text-[11px]">
+                                  <span className="inline-flex items-center text-success space-x-1 font-semibold text-xs">
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                     <span>Verified</span>
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center text-amber-600 space-x-1 font-semibold text-[11px]">
+                                  <span className="inline-flex items-center text-warning space-x-1 font-semibold text-xs">
                                     <AlertCircle className="h-3.5 w-3.5" />
                                     <span>Review</span>
                                   </span>
@@ -2810,22 +2688,22 @@ export default function App() {
               {/* 3. CODE TAB - FULLY EDITABLE CODE EDITOR */}
               {activeTab === 'code' && (
                 <div className="flex-1 flex flex-col h-full">
-                  <div className="flex-1 flex flex-col rounded-lg border border-slate-200 bg-white overflow-hidden shadow-xs">
+                  <div className="flex-1 flex flex-col rounded-lg border border-border bg-white overflow-hidden shadow-xs">
                     {/* Editor Sub-header */}
-                    <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border-b border-slate-200 text-xs">
+                    <div className="flex items-center justify-between px-3.5 py-2 bg-slate-50 border-b border-border text-xs">
                       <div className="flex items-center space-x-2">
-                        <FileCode className="h-3.5 w-3.5 text-blue-600" />
-                        <span className="font-mono text-[11px] text-slate-700 font-medium">tests/generated/{testId}.spec.ts</span>
+                        <FileCode className="h-3.5 w-3.5 text-primary" />
+                        <span className="font-mono text-xs text-slate-700 font-medium">tests/generated/{testId}.spec.ts</span>
                         {isCodeEdited ? (
-                          <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 text-[11px] font-semibold border border-amber-200">
+                          <span className="px-1.5 py-0.5 rounded bg-warning-soft text-amber-800 text-xs font-semibold border border-amber-200">
                             Modified (Editable)
                           </span>
                         ) : generatedCode ? (
-                          <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[11px] font-semibold border border-blue-200">
+                          <span className="px-1.5 py-0.5 rounded bg-primary-soft text-primary-hover text-xs font-semibold border border-blue-200">
                             Generated (Editable)
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-medium border border-slate-200">
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-xs font-medium border border-border">
                             Editor Ready
                           </span>
                         )}
@@ -2836,13 +2714,13 @@ export default function App() {
                             type="button"
                             onClick={handleGenerate}
                             disabled={isGenerating}
-                            className="text-[11px] text-blue-600 hover:text-blue-700 font-medium flex items-center space-x-1 cursor-pointer"
+                            className="text-xs text-primary hover:text-primary-hover font-medium flex items-center space-x-1 cursor-pointer"
                           >
                             <Sparkles className="h-3 w-3" />
                             <span>Auto-Generate from Steps</span>
                           </button>
                         )}
-                        <span className="text-[11px] text-slate-400">Directly editable before running</span>
+                        <span className="text-xs text-slate-400">Directly editable before running</span>
                       </div>
                     </div>
 
@@ -2870,7 +2748,7 @@ export default function App() {
                       }}
                       spellCheck={false}
                       className="flex-1 w-full p-4 bg-white font-mono text-xs text-slate-900 leading-relaxed outline-none resize-none selection:bg-blue-100 selection:text-blue-900 placeholder:text-slate-400"
-                      placeholder={`// Orgwright Automation Spec — click "Record" or "Generate Spec" to auto-compile\n// 1. Define or auto-record steps in the left editor\n// 2. Click "Generate Spec" to synthesize deterministic Lightning automation\n// 3. Click "Run Live" to execute test with zero flakiness\n`}
+                      placeholder={`// Orgwright Automation Spec — click "Record" or "Generate Spec" to auto-compile\n// 1. Define or auto-record steps in the left editor\n// 2. Click "Generate Spec" to synthesize deterministic Lightning automation\n// 3. Click "Run Live" to execute the test\n`}
                     />
                   </div>
                 </div>
@@ -2890,9 +2768,9 @@ export default function App() {
                   )}
                   {/* Interactive Recorder Control Banner */}
                   {isRecording && (
-                    <div className="bg-rose-50 border border-rose-200 rounded-lg px-4 py-2 flex items-center justify-between text-xs text-rose-800 shadow-xs">
+                    <div className="bg-danger-soft border border-rose-200 rounded-lg px-4 py-2 flex items-center justify-between text-xs text-rose-800 shadow-xs">
                       <div className="flex items-center space-x-2">
-                        <span className="h-2.5 w-2.5 rounded-full bg-rose-600 animate-ping" />
+                        <span className="h-2.5 w-2.5 rounded-full bg-danger animate-ping" />
                         <span className="font-semibold text-rose-900">Live Recording Active:</span>
                         <span>Click buttons, dropdowns, fields or scroll in the browser window below to auto-record steps!</span>
                       </div>
@@ -2900,7 +2778,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleLiveViewportScroll(350)}
-                          className="flex items-center space-x-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs shadow-xs font-medium cursor-pointer"
+                          className="flex items-center space-x-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-border text-xs shadow-xs font-medium cursor-pointer"
                           title="Trigger Scroll Down"
                         >
                           <ArrowDown className="h-3 w-3" />
@@ -2909,7 +2787,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleLiveViewportScroll(-350)}
-                          className="flex items-center space-x-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs shadow-xs font-medium cursor-pointer"
+                          className="flex items-center space-x-1 px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-border text-xs shadow-xs font-medium cursor-pointer"
                           title="Trigger Scroll Up"
                         >
                           <ArrowUp className="h-3 w-3" />
@@ -2918,7 +2796,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={handleToggleRecording}
-                          className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs transition cursor-pointer"
+                          className="px-3 py-1 rounded-lg bg-danger hover:bg-danger-hover text-white font-semibold text-xs shadow-xs transition cursor-pointer"
                         >
                           Stop Recording
                         </button>
@@ -2927,9 +2805,9 @@ export default function App() {
                   )}
 
                   {/* Browser Window Mockup Frame */}
-                  <div className="flex-1 flex flex-col bg-slate-100 rounded-lg border border-slate-200 overflow-hidden shadow-xs">
+                  <div className="flex-1 flex flex-col bg-slate-100 rounded-lg border border-border overflow-hidden shadow-xs">
                     {/* Simulated Browser Address & Controls Bar */}
-                    <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200 text-xs">
+                    <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-border text-xs">
                       {/* Window Controls */}
                       <div className="flex items-center space-x-2">
                         <div className="flex items-center space-x-1.5">
@@ -2937,44 +2815,48 @@ export default function App() {
                           <div className="h-3 w-3 rounded-full bg-amber-400 border border-amber-500/30" />
                           <div className="h-3 w-3 rounded-full bg-emerald-400 border border-emerald-500/30" />
                         </div>
-                        <span className="text-[11px] font-semibold text-slate-600 ml-2 hidden sm:inline">
+                        <span className="text-xs font-semibold text-slate-600 ml-2 hidden sm:inline">
                           Salesforce Lightning Execution Viewport
                         </span>
                       </div>
 
-                      {/* URL Bar */}
-                      <div className="flex-1 max-w-lg mx-3 flex items-center space-x-2 px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-700 shadow-xs">
-                        <Lock className="h-3 w-3 text-emerald-600 flex-shrink-0" />
-                        <span className="truncate text-[11px] text-slate-700">
-                          {liveUrl || 'https://login.salesforce.com'}
+                      {/* URL Bar (only while a browser session is live) */}
+                      {(isRecording || runStatus === 'running' || liveFrame) ? (
+                      <div className="flex-1 max-w-lg mx-3 flex items-center space-x-2 px-3 py-1 bg-white border border-border rounded-lg text-xs font-mono text-slate-700 shadow-xs">
+                        <Lock className="h-3 w-3 text-success flex-shrink-0" />
+                        <span className="truncate text-xs text-slate-700">
+                          {liveUrl}
                         </span>
                       </div>
+                      ) : (
+                        <div className="flex-1" />
+                      )}
 
                       {/* Live Badge */}
                       <div className="flex items-center space-x-2">
                         {isRecording ? (
                           <div className="flex items-center space-x-1.5">
-                            <span className="px-2 py-0.5 rounded-full bg-rose-100 border border-rose-200 text-rose-800 text-[11px] font-semibold flex items-center space-x-1 animate-pulse">
-                              <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
+                            <span className="px-2 py-0.5 rounded-full bg-rose-100 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-1 animate-pulse">
+                              <span className="h-1.5 w-1.5 rounded-full bg-danger" />
                               <span>RECORDING ({recordedStepsCount})</span>
                             </span>
-                            <div className="flex items-center space-x-1 pl-1 border-l border-slate-200">
+                            <div className="flex items-center space-x-1 pl-1 border-l border-border">
                               <button
                                 type="button"
                                 onClick={() => handleLiveViewportScroll(-350)}
-                                className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-medium flex items-center space-x-0.5 shadow-2xs transition cursor-pointer"
+                                className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-50 border border-border text-slate-700 text-xs font-medium flex items-center space-x-0.5 shadow-2xs transition cursor-pointer"
                                 title="Scroll Page Up in Salesforce"
                               >
-                                <ArrowUp className="h-2.5 w-2.5 text-blue-600" />
+                                <ArrowUp className="h-2.5 w-2.5 text-primary" />
                                 <span>Up</span>
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleLiveViewportScroll(350)}
-                                className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-medium flex items-center space-x-0.5 shadow-2xs transition cursor-pointer"
+                                className="px-1.5 py-0.5 rounded bg-white hover:bg-slate-50 border border-border text-slate-700 text-xs font-medium flex items-center space-x-0.5 shadow-2xs transition cursor-pointer"
                                 title="Scroll Page Down in Salesforce"
                               >
-                                <ArrowDown className="h-2.5 w-2.5 text-blue-600" />
+                                <ArrowDown className="h-2.5 w-2.5 text-primary" />
                                 <span>Down</span>
                               </button>
                             </div>
@@ -2983,14 +2865,14 @@ export default function App() {
                           <div className="flex items-center space-x-2">
                             {isPaused ? (
                               <>
-                                <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-semibold flex items-center space-x-1 animate-pulse">
-                                  <Pause className="h-2.5 w-2.5 text-amber-700 fill-current" />
+                                <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold flex items-center space-x-1 animate-pulse">
+                                  <Pause className="h-2.5 w-2.5 text-warning fill-current" />
                                   <span>PAUSED — SCREEN INTERACTIVE</span>
                                 </span>
                                 <button
                                   type="button"
                                   onClick={handleResumeExecution}
-                                  className="px-2.5 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer animate-pulse"
+                                  className="px-2.5 py-0.5 rounded-md bg-success hover:bg-emerald-700 text-white text-xs font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer animate-pulse"
                                   title="Resume test execution from current position"
                                 >
                                   <Play className="h-2.5 w-2.5 fill-current" />
@@ -2999,14 +2881,14 @@ export default function App() {
                               </>
                             ) : (
                               <>
-                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-semibold flex items-center space-x-1 animate-pulse">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center space-x-1 animate-pulse">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
                                   <span>LIVE STREAM</span>
                                 </span>
                                 <button
                                   type="button"
                                   onClick={handlePauseExecution}
-                                  className="px-2 py-0.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
+                                  className="px-2 py-0.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
                                   title="Pause automation execution to enter values or add steps"
                                 >
                                   <Pause className="h-2.5 w-2.5 fill-current" />
@@ -3018,7 +2900,7 @@ export default function App() {
                               type="button"
                               onClick={handleStopExecution}
                               disabled={isStopping}
-                              className="px-2 py-0.5 rounded-md bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-[11px] font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
+                              className="px-2 py-0.5 rounded-md bg-danger hover:bg-danger-hover disabled:opacity-50 text-white text-xs font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
                               title="Stop running live automation"
                             >
                               <Square className="h-2.5 w-2.5 fill-current" />
@@ -3026,27 +2908,27 @@ export default function App() {
                             </button>
                           </div>
                         ) : runStatus === 'interrupted' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center space-x-1">
-                            <Square className="h-2.5 w-2.5 fill-current text-amber-600" />
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center space-x-1">
+                            <Square className="h-2.5 w-2.5 fill-current text-warning" />
                             <span>STOPPED BY USER</span>
                           </span>
                         ) : runStatus === 'passed' ? (
-                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-semibold flex items-center space-x-1">
-                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center space-x-1">
+                            <CheckCircle2 className="h-3 w-3 text-success" />
                             <span>COMPLETED</span>
                           </span>
                         ) : runStatus === 'failed' ? (
                           <button
                             type="button"
                             onClick={() => setShowFailureModal(true)}
-                            className="px-2.5 py-0.5 rounded-full bg-rose-100 border border-rose-200 text-rose-800 hover:bg-rose-200 text-[11px] font-semibold flex items-center space-x-1 transition cursor-pointer"
+                            className="px-2.5 py-0.5 rounded-full bg-rose-100 border border-rose-200 text-rose-800 hover:bg-rose-200 text-xs font-semibold flex items-center space-x-1 transition cursor-pointer"
                             title="Click to view failure reason popup"
                           >
-                            <AlertCircle className="h-3 w-3 text-rose-600" />
+                            <AlertCircle className="h-3 w-3 text-danger" />
                             <span>FAILED (VIEW REASON)</span>
                           </button>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[11px] font-medium border border-slate-300">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-xs font-medium border border-slate-300">
                             STANDBY
                           </span>
                         )}
@@ -3055,9 +2937,9 @@ export default function App() {
 
                     {/* Jira Execution Proof Banner */}
                     {(runStatus === 'passed' || runStatus === 'failed' || availableJiraProofTestId) && (
-                      <div className="px-4 py-2 bg-blue-50/90 border-b border-blue-200 flex items-center justify-between text-xs transition">
+                      <div className="px-4 py-2 bg-primary-soft/90 border-b border-blue-200 flex items-center justify-between text-xs transition">
                         <div className="flex items-center space-x-2 text-blue-900 truncate mr-2">
-                          <FileCheck className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                          <FileCheck className="h-4 w-4 text-primary flex-shrink-0" />
                           <span className="font-semibold text-blue-950">
                             Jira Test Proof Ready:
                           </span>
@@ -3068,7 +2950,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleDownloadJiraProof(availableJiraProofTestId || testId)}
-                          className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] flex items-center space-x-1.5 shadow-xs transition cursor-pointer flex-shrink-0"
+                          className="px-2.5 py-1 rounded-md bg-primary hover:bg-primary-hover text-white font-medium text-xs flex items-center space-x-1.5 shadow-xs transition cursor-pointer flex-shrink-0"
                           title="Download Word (.docx) test execution proof for Jira upload"
                         >
                           <Download className="h-3 w-3" />
@@ -3079,20 +2961,20 @@ export default function App() {
 
                     {/* Prominent Failure Alert Banner */}
                     {runStatus === 'failed' && (
-                      <div className="px-4 py-2 bg-rose-50 border-b border-rose-200 flex items-center justify-between text-xs transition">
+                      <div className="px-4 py-2 bg-danger-soft border-b border-rose-200 flex items-center justify-between text-xs transition">
                         <div className="flex items-center space-x-2 text-rose-800 truncate mr-2">
-                          <AlertTriangle className="h-4 w-4 text-rose-600 flex-shrink-0 animate-pulse" />
+                          <AlertTriangle className="h-4 w-4 text-danger flex-shrink-0 animate-pulse" />
                           <span className="font-semibold text-rose-900">
-                            {failureAnalysis?.errorTitle || 'Step Execution Timed Out'}
+                            {failureAnalysis?.errorTitle || 'The test failed'}
                           </span>
                           <span className="text-slate-600 hidden md:inline truncate">
-                            — {failureAnalysis?.humanExplanation || 'Element was not found on screen within timeout.'}
+                            — {failureAnalysis?.humanExplanation || 'Open the Results tab to see which step failed.'}
                           </span>
                         </div>
                         <button
                           type="button"
                           onClick={() => setShowFailureModal(true)}
-                          className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs shadow-xs flex items-center space-x-1 flex-shrink-0 transition cursor-pointer"
+                          className="px-3 py-1 rounded-lg bg-danger hover:bg-danger-hover text-white font-medium text-xs shadow-xs flex items-center space-x-1 flex-shrink-0 transition cursor-pointer"
                         >
                           <HelpCircle className="h-3.5 w-3.5" />
                           <span>View Why Test Failed</span>
@@ -3104,18 +2986,18 @@ export default function App() {
                     {liveStep && (
                       <div className={`px-4 py-2 border-b flex items-center justify-between text-xs font-mono transition ${
                         isRecording
-                          ? 'bg-rose-50 border-rose-200 text-rose-900'
+                          ? 'bg-danger-soft border-rose-200 text-rose-900'
                           : isPaused
-                          ? 'bg-amber-50 border-amber-300 text-amber-900'
-                          : 'bg-blue-50 border-blue-200 text-blue-900'
+                          ? 'bg-warning-soft border-amber-300 text-amber-900'
+                          : 'bg-primary-soft border-blue-200 text-blue-900'
                       }`}>
                         <div className="flex items-center space-x-2 truncate mr-2">
                           {isRecording ? (
-                            <Disc className="h-3.5 w-3.5 text-rose-600 animate-spin flex-shrink-0" />
+                            <Disc className="h-3.5 w-3.5 text-danger animate-spin flex-shrink-0" />
                           ) : isPaused ? (
-                            <Pause className="h-3.5 w-3.5 text-amber-600 fill-current flex-shrink-0 animate-pulse" />
+                            <Pause className="h-3.5 w-3.5 text-warning fill-current flex-shrink-0 animate-pulse" />
                           ) : (
-                            <Play className="h-3.5 w-3.5 text-blue-600 fill-current flex-shrink-0" />
+                            <Play className="h-3.5 w-3.5 text-primary fill-current flex-shrink-0" />
                           )}
                           <span className="font-semibold">{isRecording ? 'Last Recorded Action:' : isPaused ? 'Paused at Step:' : 'Active Step:'}</span>
                           <span className="truncate text-slate-800">{liveStep}</span>
@@ -3125,21 +3007,21 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleAddStepAtPause()}
-                              className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-sans font-semibold flex items-center space-x-1 shadow-xs cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-xs font-sans font-semibold flex items-center space-x-1 shadow-xs cursor-pointer"
                               title="Insert a new step right after the paused step"
                             >
                               <Plus className="h-2.5 w-2.5" />
                               <span>Insert Step</span>
                             </button>
                           )}
-                          <span className="text-[11px] font-sans font-medium text-slate-500 hidden sm:inline">
+                          <span className="text-xs font-sans font-medium text-muted hidden sm:inline">
                             {isRecording ? 'Interactive Codegen Active' : isPaused ? 'Live Screen Interactive' : 'Real-time Screencast'}
                           </span>
                           {isRunning && isPaused && (
                             <button
                               type="button"
                               onClick={handleResumeExecution}
-                              className="px-2.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer animate-pulse"
+                              className="px-2.5 py-0.5 rounded bg-success hover:bg-emerald-700 text-white text-xs font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer animate-pulse"
                               title="Resume automation testing"
                             >
                               <Play className="h-2.5 w-2.5 fill-current" />
@@ -3150,7 +3032,7 @@ export default function App() {
                             <button
                               type="button"
                               onClick={handlePauseExecution}
-                              className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
+                              className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
                               title="Pause automation execution to enter values or add steps"
                             >
                               <Pause className="h-2.5 w-2.5 fill-current" />
@@ -3162,7 +3044,7 @@ export default function App() {
                               type="button"
                               onClick={handleStopExecution}
                               disabled={isStopping}
-                              className="px-2.5 py-0.5 rounded bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-[11px] font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
+                              className="px-2.5 py-0.5 rounded bg-danger hover:bg-danger-hover disabled:opacity-50 text-white text-xs font-semibold flex items-center space-x-1 shadow-xs transition cursor-pointer"
                               title="Stop running live automation immediately"
                             >
                               <Square className="h-2.5 w-2.5 fill-current" />
@@ -3177,13 +3059,13 @@ export default function App() {
                     {(isRecording || isPaused) && (
                       <div className={`border-b px-4 py-2 flex items-center justify-between text-xs space-x-3 ${
                         isPaused
-                          ? 'bg-amber-50/90 border-amber-200'
-                          : 'bg-blue-50/80 border-blue-100'
+                          ? 'bg-warning-soft/90 border-amber-200'
+                          : 'bg-primary-soft/80 border-blue-100'
                       }`}>
                         <div className="flex items-center space-x-2 text-slate-700 flex-shrink-0">
-                          <Keyboard className={`h-4 w-4 ${isPaused ? 'text-amber-600' : 'text-blue-600'}`} />
+                          <Keyboard className={`h-4 w-4 ${isPaused ? 'text-warning' : 'text-primary'}`} />
                           <span className="font-semibold text-slate-800">{isPaused ? 'Interactive Typing (Paused):' : 'Live Typing:'}</span>
-                          <span className="text-[11px] text-slate-500 hidden sm:inline">{isPaused ? 'Click screen to focus, then enter value:' : 'Type directly on keyboard or send value:'}</span>
+                          <span className="text-xs text-muted hidden sm:inline">{isPaused ? 'Click screen to focus, then enter value:' : 'Type directly on keyboard or send value:'}</span>
                         </div>
                         <form
                           onSubmit={handleQuickTypeSubmit}
@@ -3196,14 +3078,14 @@ export default function App() {
                             onChange={(e) => setQuickTypeText(e.target.value)}
                             placeholder={isPaused ? "Type value to enter (e.g. 100, Acme Corp) & press Enter..." : "Type value (e.g. 23, Insurance) & press Enter..."}
                             className={`flex-1 bg-white border rounded-md px-3 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none shadow-xs ${
-                              isPaused ? 'border-amber-300 focus:border-amber-500' : 'border-blue-200 focus:border-blue-500'
+                              isPaused ? 'border-amber-300 focus:border-amber-500' : 'border-blue-200 focus:border-primary'
                             }`}
                           />
                           <button
                             type="submit"
                             disabled={!quickTypeText}
-                            className={`px-2.5 py-1 text-white rounded-md text-[11px] font-semibold flex items-center space-x-1 flex-shrink-0 shadow-xs transition cursor-pointer disabled:opacity-50 ${
-                              isPaused ? 'bg-amber-600 hover:bg-amber-700' : 'bg-blue-600 hover:bg-blue-700'
+                            className={`px-2.5 py-1 text-white rounded-md text-xs font-semibold flex items-center space-x-1 flex-shrink-0 shadow-xs transition cursor-pointer disabled:opacity-50 ${
+                              isPaused ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-primary-hover'
                             }`}
                           >
                             <span>Type</span>
@@ -3219,7 +3101,7 @@ export default function App() {
                                   setQuickTypeText('');
                                 }
                               }}
-                              className="px-2 py-1 bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 rounded-md text-[11px] font-semibold flex-shrink-0 shadow-xs cursor-pointer disabled:opacity-50"
+                              className="px-2 py-1 bg-white hover:bg-warning-soft border border-amber-300 text-amber-900 rounded-md text-xs font-semibold flex-shrink-0 shadow-xs cursor-pointer disabled:opacity-50"
                               title="Type value and add as step to test scenario"
                             >
                               + Step
@@ -3228,7 +3110,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => handleSpecialKey('Enter')}
-                            className="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[11px] font-mono flex-shrink-0 shadow-xs cursor-pointer"
+                            className="px-2 py-1 bg-white hover:bg-slate-50 border border-border text-slate-700 rounded-md text-xs font-mono flex-shrink-0 shadow-xs cursor-pointer"
                             title="Send Enter key to focused field"
                           >
                             Enter ↵
@@ -3236,7 +3118,7 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => handleSpecialKey('Tab')}
-                            className="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[11px] font-mono flex-shrink-0 shadow-xs cursor-pointer"
+                            className="px-2 py-1 bg-white hover:bg-slate-50 border border-border text-slate-700 rounded-md text-xs font-mono flex-shrink-0 shadow-xs cursor-pointer"
                             title="Send Tab key to focused field"
                           >
                             Tab ⇥
@@ -3245,19 +3127,19 @@ export default function App() {
                             <button
                               type="button"
                               onClick={() => handleLiveViewportScroll(-350)}
-                              className="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[11px] font-medium flex items-center space-x-1 flex-shrink-0 shadow-xs cursor-pointer"
+                              className="px-2 py-1 bg-white hover:bg-slate-50 border border-border text-slate-700 rounded-md text-xs font-medium flex items-center space-x-1 flex-shrink-0 shadow-xs cursor-pointer"
                               title="Scroll page up in Salesforce"
                             >
-                              <ArrowUp className="h-3 w-3 text-blue-600" />
+                              <ArrowUp className="h-3 w-3 text-primary" />
                               <span>Up</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => handleLiveViewportScroll(350)}
-                              className="px-2 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-md text-[11px] font-medium flex items-center space-x-1 flex-shrink-0 shadow-xs cursor-pointer"
+                              className="px-2 py-1 bg-white hover:bg-slate-50 border border-border text-slate-700 rounded-md text-xs font-medium flex items-center space-x-1 flex-shrink-0 shadow-xs cursor-pointer"
                               title="Scroll page down in Salesforce"
                             >
-                              <ArrowDown className="h-3 w-3 text-blue-600" />
+                              <ArrowDown className="h-3 w-3 text-primary" />
                               <span>Down</span>
                             </button>
                           </div>
@@ -3265,8 +3147,26 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* Live Viewport Screen Canvas */}
-                    <div className="flex-1 flex items-center justify-center bg-slate-100/70 p-2 overflow-hidden relative">
+                    {/* Live Viewport Screen Canvas: focusable; keystrokes go to Salesforce only while it has focus */}
+                    <div
+                      className="flex-1 flex items-center justify-center bg-slate-100/70 p-2 overflow-hidden relative outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      tabIndex={isRecording || isPaused ? 0 : -1}
+                      role="application"
+                      aria-label={isRecording || isPaused ? 'Live Salesforce browser. Keys you type here are sent to Salesforce. Tab moves focus out.' : 'Live Salesforce browser'}
+                      onKeyDown={handleViewportKeyDown}
+                      onFocus={() => setViewportFocused(true)}
+                      onBlur={() => setViewportFocused(false)}
+                    >
+                      {(isRecording || isPaused) && liveFrame && (
+                        <span
+                          className={`absolute left-3 top-3 z-10 flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold shadow-xs ${
+                            viewportFocused ? 'border-blue-300 bg-primary text-white' : 'border-slate-300 bg-white text-slate-700'
+                          }`}
+                        >
+                          <Keyboard className="h-3.5 w-3.5" aria-hidden="true" />
+                          {viewportFocused ? 'Keyboard → Salesforce' : 'Click the screen to type into Salesforce'}
+                        </span>
+                      )}
                       {liveFrame ? (
                         <div className="relative w-full h-full flex items-center justify-center">
                           <img
@@ -3275,8 +3175,8 @@ export default function App() {
                             onClick={handleLiveViewportClick}
                             onWheel={handleLiveViewportWheel}
                             alt="Live Salesforce Browser Screen"
-                            className={`max-h-[520px] w-auto max-w-full rounded-lg shadow-md border border-slate-200 object-contain ${
-                              (isRecording || isPaused) ? 'cursor-pointer hover:ring-2 hover:ring-blue-500/50' : ''
+                            className={`max-h-[520px] w-auto max-w-full rounded-lg shadow-md border border-border object-contain ${
+                              (isRecording || isPaused) ? 'cursor-pointer hover:ring-2 hover:ring-primary/50' : ''
                             } ${isPaused ? 'ring-2 ring-amber-500 shadow-amber-500/20' : ''}`}
                             title={(isRecording || isPaused) ? 'Screen is interactive! Click to click, scroll mouse wheel, or type values below.' : ''}
                           />
@@ -3287,16 +3187,16 @@ export default function App() {
                           <p className="text-sm font-medium text-slate-200">
                             {isRecording ? 'Connecting to Interactive Recording Browser...' : 'Connecting to Live Viewport...'}
                           </p>
-                          <p className="text-xs text-slate-500 max-w-xs">
+                          <p className="text-xs text-muted max-w-xs">
                             Launching Chrome session and establishing screencast stream...
                           </p>
                         </div>
                       ) : (
                         <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-400 space-y-3">
                           <MousePointerClick className="h-14 w-14 stroke-1 text-slate-400 mb-2" />
-                          <p className="text-sm font-medium text-slate-700">Live Interactive Browser Ready</p>
-                          <p className="text-xs text-slate-500 max-w-md">
-                            Click <strong>"Record"</strong>. A browser session will open directly with Salesforce. As you click buttons, select dropdowns, fill fields, and scroll, steps will automatically be written into the text definition and compiled into test automation code in real time!
+                          <p className="text-sm font-medium text-slate-700">Nothing running</p>
+                          <p className="text-xs text-slate-600 max-w-md">
+                            Press <strong>Run test</strong> to watch it here, or <strong>Record</strong> to make steps by clicking.
                           </p>
                         </div>
                       )}
@@ -3305,17 +3205,17 @@ export default function App() {
 
                   {/* Ticker for latest Terminal Log at the bottom */}
                   {logs.length > 0 && (
-                    <div className="bg-white border border-slate-200 rounded-lg p-2.5 flex items-center justify-between text-xs font-mono shadow-xs">
-                      <div className="flex items-center space-x-2 text-slate-500 truncate mr-3">
-                        <Terminal className="h-3.5 w-3.5 text-blue-600 flex-shrink-0" />
-                        <span className="text-[11px] truncate text-slate-700">
+                    <div className="bg-white border border-border rounded-lg p-2.5 flex items-center justify-between text-xs font-mono shadow-xs">
+                      <div className="flex items-center space-x-2 text-muted truncate mr-3">
+                        <Terminal className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                        <span className="text-xs truncate text-slate-700">
                           {logs[logs.length - 1]}
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setActiveTab('terminal')}
-                        className="text-[11px] text-blue-600 hover:text-blue-700 font-medium flex-shrink-0 flex items-center space-x-1 cursor-pointer"
+                        className="text-xs text-primary hover:text-primary-hover font-medium flex-shrink-0 flex items-center space-x-1 cursor-pointer"
                       >
                         <span>View Console Logs ({logs.length})</span>
                         <ChevronRight className="h-3 w-3" />
@@ -3341,6 +3241,11 @@ export default function App() {
                   setZoomedScreenshot={setZoomedScreenshot}
                   isTesterMode={isTesterMode}
                   selectedOrg={selectedOrg}
+                  orgEnvLabel={orgEnvLabel}
+                  failureAnalysis={failureAnalysis}
+                  onEditStep={(n) => setFocusRequest({ nonce: Date.now(), stepIndex: n })}
+                  onRunAgain={() => requestRun()}
+                  isRunning={isRunning}
                   selectedPersona={selectedPersona}
                   testId={testId}
                 />
@@ -3350,10 +3255,10 @@ export default function App() {
               {activeTab === 'terminal' && (
                 <div className="flex-1 flex flex-col bg-slate-950 border border-slate-800/80 rounded-lg p-4 font-mono text-xs overflow-auto">
                   {logs.length === 0 && runStatus === 'idle' ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500">
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted">
                       <Terminal className="h-10 w-10 mb-2 stroke-1 text-slate-600" />
                       <p className="text-sm font-medium text-slate-400">Execution Console Ready</p>
-                      <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                      <p className="text-xs text-muted mt-1 max-w-sm">
                         Click <strong>"Run Live"</strong> or <strong>"Run Selected"</strong> to watch execution logs and assertions in real time.
                       </p>
                     </div>
@@ -3395,45 +3300,26 @@ export default function App() {
 
       {/* USER-FRIENDLY TEST FAILURE POPUP MODAL */}
       {showFailureModal && failureAnalysis && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="bg-rose-50/90 border-b border-rose-100 p-4 px-6 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-lg bg-rose-100 border border-rose-200 flex items-center justify-center text-rose-600">
-                  <AlertTriangle className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
-                    <span>{failureAnalysis.errorTitle || 'Test Execution Failed'}</span>
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {ticketNumber} ({testId}) • Test Execution Failure
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowFailureModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-rose-100/60 transition cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+        <Modal open onClose={() => setShowFailureModal(false)} size="lg" flush title={<span className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-danger" aria-hidden="true" />{failureAnalysis.errorTitle || 'Test Execution Failed'}</span>}>
+<p className="px-6 pt-3 text-xs text-muted">{ticketNumber} ({testId}) • Test Execution Failure</p>
             {/* Modal Body */}
             <div className="p-6 space-y-4 overflow-y-auto text-sm text-slate-800">
               {/* Failing Step Callout */}
               {failureAnalysis.failedStepText && (
-                <div className="bg-rose-50 border border-rose-200 rounded-lg p-3.5 space-y-1.5">
+                <div className="bg-danger-soft border border-rose-200 rounded-lg p-3.5 space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold text-rose-800 flex items-center space-x-1.5">
-                      <span className="h-2 w-2 rounded-full bg-rose-600 animate-pulse" />
+                      <span className="h-2 w-2 rounded-full bg-danger animate-pulse" />
                       <span>Failing Step #{failureAnalysis.failedStepIndex || '?'}</span>
                     </span>
-                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-mono text-[11px] font-semibold border border-rose-200">
-                      Timed out (25s)
-                    </span>
+                    {(() => {
+                      const m = /Timeout (\d+)ms exceeded/i.exec(failureAnalysis.rawErrorMessage || '');
+                      return m ? (
+                        <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-mono text-xs font-semibold border border-rose-200">
+                          Timed out ({Math.round(Number(m[1]) / 1000)}s)
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                   <div className="font-mono text-xs text-rose-900 bg-white p-2.5 rounded-lg border border-rose-200">
                     {failureAnalysis.failedStepText}
@@ -3442,9 +3328,9 @@ export default function App() {
               )}
 
               {/* Plain-English Explanation */}
-              <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-4 space-y-1.5">
+              <div className="bg-primary-soft/70 border border-blue-200 rounded-lg p-4 space-y-1.5">
                 <div className="text-xs font-semibold text-blue-800 flex items-center space-x-1.5">
-                  <HelpCircle className="h-3.5 w-3.5 text-blue-600" />
+                  <HelpCircle className="h-3.5 w-3.5 text-primary" />
                   <span>Why Did This Test Fail? (Simple Explanation)</span>
                 </div>
                 <p className="text-slate-700 text-xs leading-relaxed">
@@ -3453,9 +3339,9 @@ export default function App() {
               </div>
 
               {/* Root Cause in Salesforce */}
-              <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-4 space-y-1.5">
+              <div className="bg-warning-soft/70 border border-amber-200 rounded-lg p-4 space-y-1.5">
                 <div className="text-xs font-semibold text-amber-800 flex items-center space-x-1.5">
-                  <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                  <AlertCircle className="h-3.5 w-3.5 text-warning" />
                   <span>Under the Hood (Salesforce Root Cause)</span>
                 </div>
                 <p className="text-slate-700 text-xs leading-relaxed">
@@ -3464,14 +3350,14 @@ export default function App() {
               </div>
 
               {/* Recommendation & One-Click Fix */}
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 space-y-3">
+              <div className="bg-success-soft border border-emerald-200 rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold text-emerald-800 flex items-center space-x-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                    <Sparkles className="h-3.5 w-3.5 text-success" />
                     <span>Recommended Fix</span>
                   </div>
                   {failureAnalysis.suggestedStepFix && (
-                    <span className="text-[11px] text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
+                    <span className="text-xs text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
                       1-Click Auto-Fix Ready
                     </span>
                   )}
@@ -3482,13 +3368,13 @@ export default function App() {
                 {failureAnalysis.suggestedStepFix && (
                   <div className="bg-white border border-emerald-200 rounded-lg p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
                     <div className="text-xs font-mono text-emerald-900">
-                      <span className="text-slate-500 text-[11px] block">Suggested Replacement Step:</span>
+                      <span className="text-muted text-xs block">Suggested Replacement Step:</span>
                       {failureAnalysis.suggestedStepFix}
                     </div>
                     <button
                       type="button"
                       onClick={() => handleApplyFailureFix(false)}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-xs flex items-center space-x-1 flex-shrink-0 transition cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-success hover:bg-emerald-700 text-white font-medium text-xs shadow-xs flex items-center space-x-1 flex-shrink-0 transition cursor-pointer"
                     >
                       <Wrench className="h-3.5 w-3.5" />
                       <span>Apply Fix to Step #{failureAnalysis.failedStepIndex}</span>
@@ -3498,26 +3384,26 @@ export default function App() {
               </div>
 
               {/* Failure Screenshot Preview */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+              <div className="border border-border rounded-lg overflow-hidden bg-slate-50">
                 <button
                   type="button"
                   onClick={() => setShowFailureScreenshot(!showFailureScreenshot)}
                   className="w-full p-2.5 px-3 flex items-center justify-between text-xs text-slate-700 hover:text-slate-900 bg-slate-100/70 transition cursor-pointer"
                 >
                   <span className="flex items-center space-x-1.5 font-medium">
-                    <Monitor className="h-3.5 w-3.5 text-blue-600" />
+                    <Monitor className="h-3.5 w-3.5 text-primary" />
                     <span>Browser State at Moment of Failure</span>
                   </span>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-xs text-muted">
                     {showFailureScreenshot ? 'Hide Screenshot ▲' : 'Show Screenshot ▼'}
                   </span>
                 </button>
                 {showFailureScreenshot && (
-                  <div className="p-3 bg-white flex items-center justify-center border-t border-slate-200">
+                  <div className="p-3 bg-white flex items-center justify-center border-t border-border">
                     <img
                       src="/api/test-results/screenshot"
                       alt="Browser failure screenshot"
-                      className="max-h-64 rounded border border-slate-200 object-contain shadow-xs"
+                      className="max-h-64 rounded border border-border object-contain shadow-xs"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = 'none';
                       }}
@@ -3527,25 +3413,25 @@ export default function App() {
               </div>
 
               {/* Collapsible Technical Details */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+              <div className="border border-border rounded-lg overflow-hidden bg-slate-50">
                 <button
                   type="button"
                   onClick={() => setShowTechDetails(!showTechDetails)}
                   className="w-full p-2.5 px-3 flex items-center justify-between text-xs text-slate-700 hover:text-slate-900 bg-slate-100/70 transition cursor-pointer"
                 >
                   <span className="flex items-center space-x-1.5 font-medium">
-                    <Terminal className="h-3.5 w-3.5 text-slate-500" />
+                    <Terminal className="h-3.5 w-3.5 text-muted" />
                     <span>Technical Details (Execution Trace & Call Log)</span>
                   </span>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-xs text-muted">
                     {showTechDetails ? 'Hide Details ▲' : 'Show Details ▼'}
                   </span>
                 </button>
                 {showTechDetails && (
-                  <div className="p-3 bg-slate-950 font-mono text-[11px] text-slate-300 space-y-2 border-t border-slate-200">
+                  <div className="p-3 bg-slate-950 font-mono text-xs text-slate-300 space-y-2 border-t border-border">
                     {failureAnalysis.specFile && (
                       <div>
-                        <span className="text-slate-500">Location: </span>
+                        <span className="text-muted">Location: </span>
                         <span className="text-sky-300">
                           {failureAnalysis.specFile.replace(/.*[\\/](Playwright|orgwright)[\\/]/, '')}:{failureAnalysis.specLine}
                         </span>
@@ -3558,7 +3444,7 @@ export default function App() {
                     )}
                     {failureAnalysis.callLog && failureAnalysis.callLog.length > 0 && (
                       <div>
-                        <span className="text-slate-500 block mb-1">Execution Call Log:</span>
+                        <span className="text-muted block mb-1">Execution Call Log:</span>
                         <div className="bg-slate-900 p-2 rounded text-slate-400 space-y-0.5">
                           {failureAnalysis.callLog.map((c, i) => (
                             <div key={i}>• {c}</div>
@@ -3572,7 +3458,7 @@ export default function App() {
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-slate-50 border-t border-slate-200 p-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="bg-slate-50 border-t border-border p-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setShowFailureModal(false)}
@@ -3585,7 +3471,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => handleApplyFailureFix(true)}
-                    className="w-full sm:w-auto px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs flex items-center justify-center space-x-1.5 transition cursor-pointer"
+                    className="w-full sm:w-auto px-4 py-2 rounded-lg bg-success hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs flex items-center justify-center space-x-1.5 transition cursor-pointer"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
                     <span>Auto-Fix & Re-Run Live</span>
@@ -3593,58 +3479,31 @@ export default function App() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+          
+        </Modal>
       )}
 
       {/* MULTI-USER PERSONA MATRIX RUNNER MODAL */}
       {showMatrixModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            {/* Modal Header */}
-            <div className="bg-slate-50 border-b border-slate-200 p-4 px-6 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs">
-                  <Users className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-bold text-slate-900 text-base">Multi-User Persona Matrix Runner</h3>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
-                      Cross-Profile Validation
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Execute <strong className="text-slate-800">{testId}</strong> ({ticketNumber || 'Ticket'}) across multiple Salesforce profiles to validate permissions, read-only fields & FLS.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowMatrixModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-200/60 transition cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+        <Modal open onClose={() => setShowMatrixModal(false)} size="xl" flush title={<span className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" aria-hidden="true" />Run as several users</span>}>
+<p className="px-6 pt-3 text-xs text-muted">Execute <strong className="text-slate-800">{testId}</strong> ({ticketNumber || 'Ticket'}) across multiple Salesforce profiles to validate permissions, read-only fields & FLS.</p>
             {/* Modal Content Body */}
             <div className="p-6 overflow-y-auto space-y-5 flex-1 text-slate-800">
               {/* Context strip */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg bg-slate-50 border border-border text-xs">
                 <div>
-                  <span className="text-slate-500 block text-[11px]">Active Test Case</span>
+                  <span className="text-muted block text-xs">Active Test Case</span>
                   <span className="font-semibold text-slate-900">{testId}: {testName}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px]">Scenario Classification</span>
-                  <span className={`font-semibold font-mono ${scenarioType === 'positive' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  <span className="text-muted block text-xs">Scenario Classification</span>
+                  <span className={`font-semibold font-mono ${scenarioType === 'positive' ? 'text-success' : 'text-danger'}`}>
                     {scenarioType === 'positive' ? 'Positive Scenario' : 'Negative Scenario'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-[11px]">Connected Org</span>
-                  <span className="font-semibold text-emerald-700">{selectedOrg} (Sandbox)</span>
+                  <span className="text-muted block text-xs">Connected Org</span>
+                  <span className="font-semibold text-success">{selectedOrg ? `${selectedOrg} (${orgEnvLabel})` : orgEnvLabel}</span>
                 </div>
               </div>
 
@@ -3654,14 +3513,14 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setSelectedMatrixUserIds(orgUsers.map((u) => u.id))}
-                    className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer shadow-xs"
+                    className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-border text-slate-700 text-xs font-medium transition cursor-pointer shadow-xs"
                   >
                     Select All ({orgUsers.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedMatrixUserIds([])}
-                    className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium transition cursor-pointer shadow-xs"
+                    className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-border text-slate-700 text-xs font-medium transition cursor-pointer shadow-xs"
                   >
                     Deselect All
                   </button>
@@ -3707,7 +3566,7 @@ export default function App() {
                       className={`p-2.5 rounded-lg border cursor-pointer transition flex items-center justify-between ${
                         isChecked
                           ? 'bg-indigo-50/80 border-indigo-300 shadow-xs'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          : 'bg-white border-border hover:border-slate-300'
                       }`}
                     >
                       <div className="flex items-center space-x-3 min-w-0">
@@ -3724,17 +3583,17 @@ export default function App() {
                           <div className="flex items-center space-x-1.5">
                             <span className="text-xs font-semibold text-slate-900 truncate">{user.name}</span>
                             {user.isDefault && (
-                              <span className="px-1 text-[10px] rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold">
+                              <span className="px-1 text-xs rounded bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold">
                                 Admin
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center space-x-1.5 text-[11px]">
+                          <div className="flex items-center space-x-1.5 text-xs">
                             <span className="font-mono text-indigo-700 px-1 py-0.2 rounded bg-indigo-100/60 font-semibold">
                               {user.profileName}
                             </span>
                             {user.roleName && (
-                              <span className="text-slate-500 truncate max-w-[120px]">• {user.roleName}</span>
+                              <span className="text-muted truncate max-w-[120px]">• {user.roleName}</span>
                             )}
                           </div>
                         </div>
@@ -3746,7 +3605,7 @@ export default function App() {
 
               {/* Matrix Live Results Table & Summary */}
               {(isMatrixRunning || matrixResults.length > 0) && (
-                <div className="space-y-3 pt-3 border-t border-slate-200">
+                <div className="space-y-3 pt-3 border-t border-border">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Layers className="h-4 w-4 text-indigo-600" />
@@ -3758,14 +3617,14 @@ export default function App() {
                     {matrixSummary && (
                       <div className="flex items-center space-x-3">
                         <span className="text-xs font-semibold text-slate-700">
-                          Compliance: <strong className="text-emerald-600">{matrixSummary.complianceRate}</strong> ({matrixSummary.passed}/{matrixSummary.total} Passed)
+                          Compliance: <strong className="text-success">{matrixSummary.complianceRate}</strong> ({matrixSummary.passed}/{matrixSummary.total} Passed)
                         </span>
                         <button
                           type="button"
                           onClick={handleCopyMatrixJiraReport}
-                          className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium flex items-center space-x-1 transition cursor-pointer shadow-xs"
+                          className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 border border-border text-slate-700 text-xs font-medium flex items-center space-x-1 transition cursor-pointer shadow-xs"
                         >
-                          {copiedMatrixReport ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                          {copiedMatrixReport ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
                           <span>{copiedMatrixReport ? 'Report Copied!' : 'Copy Jira Summary'}</span>
                         </button>
                       </div>
@@ -3785,56 +3644,56 @@ export default function App() {
                   )}
 
                   {/* Results List */}
-                  <div className="rounded-lg border border-slate-200 bg-white overflow-hidden divide-y divide-slate-100">
+                  <div className="rounded-lg border border-border bg-white overflow-hidden divide-y divide-slate-100">
                     {matrixResults.map((item, idx) => (
                       <div key={idx} className="p-3 flex items-center justify-between hover:bg-slate-50 transition">
                         <div className="flex items-center space-x-3 min-w-0">
-                          <div className="h-7 w-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 flex-shrink-0">
+                          <div className="h-7 w-7 rounded-full bg-slate-100 border border-border flex items-center justify-center text-xs font-bold text-slate-700 flex-shrink-0">
                             {item.persona.name.charAt(0)}
                           </div>
                           <div>
                             <div className="flex items-center space-x-2">
                               <span className="text-xs font-semibold text-slate-900">{item.persona.name}</span>
-                              <span className="text-[11px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
+                              <span className="text-xs px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono">
                                 {item.persona.profileName}
                               </span>
                             </div>
-                            <span className="text-[11px] text-slate-500 font-mono">{item.persona.username}</span>
+                            <span className="text-xs text-muted font-mono">{item.persona.username}</span>
                           </div>
                         </div>
 
                         <div className="flex items-center space-x-3">
                           {item.durationMs && (
-                            <span className="text-xs text-slate-500 font-mono">
+                            <span className="text-xs text-muted font-mono">
                               {(item.durationMs / 1000).toFixed(1)}s
                             </span>
                           )}
 
                           {item.status === 'pending' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-border">
                               Queued
                             </span>
                           )}
                           {item.status === 'running' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 flex items-center space-x-1 animate-pulse">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-soft text-primary-hover border border-blue-200 flex items-center space-x-1 animate-pulse">
                               <RefreshCw className="h-2.5 w-2.5 animate-spin" />
                               <span>Running</span>
                             </span>
                           )}
                           {item.status === 'passed' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center space-x-1">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success-soft text-success border border-emerald-200 flex items-center space-x-1">
+                              <CheckCircle2 className="h-3 w-3 text-success" />
                               <span>Passed</span>
                             </span>
                           )}
                           {item.status === 'failed' && (
                             <div className="flex items-center space-x-2">
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200 flex items-center space-x-1">
-                                <AlertCircle className="h-3 w-3 text-rose-600" />
+                              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-danger-soft text-danger border border-rose-200 flex items-center space-x-1">
+                                <AlertCircle className="h-3 w-3 text-danger" />
                                 <span>Failed</span>
                               </span>
                               {item.error && (
-                                <span className="text-[11px] text-rose-700 max-w-[240px] truncate" title={item.error}>
+                                <span className="text-xs text-danger max-w-[240px] truncate" title={item.error}>
                                   {item.error}
                                 </span>
                               )}
@@ -3849,7 +3708,7 @@ export default function App() {
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-slate-50 border-t border-slate-200 p-4 px-6 flex items-center justify-between">
+            <div className="bg-slate-50 border-t border-border p-4 px-6 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => setShowMatrixModal(false)}
@@ -3860,7 +3719,9 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={handleRunMatrix}
+                onClick={async () => {
+                  if (await ensureProdConfirmed('run the persona matrix')) handleRunMatrix();
+                }}
                 disabled={isMatrixRunning || selectedMatrixUserIds.length === 0}
                 className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs flex items-center space-x-2 disabled:opacity-50 transition cursor-pointer"
               >
@@ -3877,35 +3738,14 @@ export default function App() {
                 )}
               </button>
             </div>
-          </div>
-        </div>
+          
+        </Modal>
       )}
 
       {/* RAW SALESFORCE APEX DEBUG LOG MODAL */}
       {showRawApexLogModal && executionLogReport && executionLogReport.salesforceLogs.length > 0 && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="bg-slate-50 border-b border-slate-200 p-4 px-6 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-9 w-9 rounded-lg bg-amber-600 flex items-center justify-center text-white shadow-xs">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Salesforce Apex Debug Log Viewer</h3>
-                  <p className="text-xs text-slate-500">
-                    Live captured from connected org: <strong className="text-slate-800">{selectedOrg}</strong>
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowRawApexLogModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-200/60 transition cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+        <Modal open onClose={() => setShowRawApexLogModal(false)} size="xl" flush title={<span className="flex items-center gap-2"><FileText className="h-5 w-5 text-warning" aria-hidden="true" />Apex debug log</span>}>
+<p className="px-6 pt-3 text-xs text-muted">Live captured from connected org: <strong className="text-slate-800">{selectedOrg}</strong></p>
             <div className="p-4 flex-1 flex flex-col overflow-hidden space-y-3">
               {/* Log selector pills */}
               <div className="flex items-center space-x-2 overflow-x-auto pb-1 text-xs">
@@ -3921,13 +3761,13 @@ export default function App() {
                     }`}
                   >
                     <span>{log.logId}</span>
-                    <span className="text-[11px] opacity-75">({log.operation})</span>
+                    <span className="text-xs opacity-75">({log.operation})</span>
                   </button>
                 ))}
               </div>
 
               {/* Log content */}
-              <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-[11px] text-slate-300 overflow-y-auto space-y-0.5 leading-relaxed">
+              <div className="flex-1 bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs text-slate-300 overflow-y-auto space-y-0.5 leading-relaxed">
                 {executionLogReport.salesforceLogs[selectedRawLogIndex]?.rawLogPreview.map((line, lIdx) => (
                   <div key={lIdx} className="hover:bg-slate-900/50 px-1 rounded flex">
                     <span className="text-slate-600 w-8 select-none flex-shrink-0 text-right pr-2">{lIdx + 1}</span>
@@ -3949,8 +3789,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-slate-50 border-t border-slate-200 p-4 px-6 flex items-center justify-between">
-              <span className="text-xs text-slate-500 font-mono">
+            <div className="bg-slate-50 border-t border-border p-4 px-6 flex items-center justify-between">
+              <span className="text-xs text-muted font-mono">
                 Log ID: {executionLogReport.salesforceLogs[selectedRawLogIndex]?.logId}
               </span>
               <div className="flex items-center space-x-2">
@@ -3964,7 +3804,7 @@ export default function App() {
                   }}
                   className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition cursor-pointer"
                 >
-                  {copiedRawLog ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedRawLog ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                   <span>{copiedRawLog ? 'Copied Log!' : 'Copy Debug Log'}</span>
                 </button>
                 <button
@@ -3976,68 +3816,41 @@ export default function App() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          
+        </Modal>
       )}
       {/* EXCEL TEST SCENARIO IMPORT MODAL */}
       {showExcelImportModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            {/* Modal Header */}
-            <div className="bg-slate-50 border-b border-slate-200 p-4 px-6 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-9 w-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-xs">
-                  <FileSpreadsheet className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-bold text-slate-900 text-base">Import Test Scenarios from Excel</h3>
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      .XLSX / .CSV Bulk Ingestion
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Upload an Excel spreadsheet with test scenarios, step definitions, and positive/negative classifications.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
+        <Modal open onClose={() => {
                   setShowExcelImportModal(false);
                   setImportedScenariosPreview([]);
                   setImportFileName('');
                   setExcelImportError(null);
                   setExcelImportSuccess(null);
-                }}
-                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-200/60 transition cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+                }} size="xl" flush title={<span className="flex items-center gap-2"><FileSpreadsheet className="h-5 w-5 text-success" aria-hidden="true" />Import tests from Excel</span>}>
+<p className="px-6 pt-3 text-xs text-muted">Upload an Excel spreadsheet with test scenarios, step definitions, and positive/negative classifications.</p>
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-4 flex-1 text-slate-800">
               {/* File Upload Drop Area */}
-              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 bg-slate-50/50 hover:bg-emerald-50/20 transition flex flex-col items-center justify-center text-center cursor-pointer relative">
+              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-2xl p-6 bg-slate-50/50 hover:bg-success-soft/20 transition flex flex-col items-center justify-center text-center cursor-pointer relative">
                 <input
                   type="file"
                   accept=".xlsx, .xls, .csv"
                   onChange={handleExcelFileChange}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
-                <div className="h-12 w-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-3">
+                <div className="h-12 w-12 rounded-2xl bg-emerald-100 text-success flex items-center justify-center mb-3">
                   <UploadCloud className="h-6 w-6" />
                 </div>
                 <div className="text-sm font-semibold text-slate-900">
                   {importFileName ? (
-                    <span className="text-emerald-700 font-bold">{importFileName}</span>
+                    <span className="text-success font-bold">{importFileName}</span>
                   ) : (
                     'Click to select or drag and drop your Excel spreadsheet (.xlsx, .csv)'
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-1 max-w-md">
-                  Columns recognized: <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] font-mono">Test ID</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] font-mono">Scenario Type</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] font-mono">Jira Ticket</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] font-mono">Test Scenario Objective</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-[11px] font-mono">Test Steps & Data</code>.
+                <p className="text-xs text-muted mt-1 max-w-md">
+                  Columns recognized: <code className="bg-slate-200/80 px-1 py-0.5 rounded text-xs font-mono">Test ID</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-xs font-mono">Scenario Type</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-xs font-mono">Jira Ticket</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-xs font-mono">Test Scenario Objective</code>, <code className="bg-slate-200/80 px-1 py-0.5 rounded text-xs font-mono">Test Steps & Data</code>.
                 </p>
                 <div className="mt-3 flex items-center space-x-3 text-xs">
                   <button
@@ -4046,7 +3859,7 @@ export default function App() {
                       e.stopPropagation();
                       handleDownloadSampleExcel();
                     }}
-                    className="text-emerald-700 hover:text-emerald-800 font-semibold underline flex items-center space-x-1 cursor-pointer"
+                    className="text-success hover:text-emerald-800 font-semibold underline flex items-center space-x-1 cursor-pointer"
                   >
                     <Download className="h-3 w-3" />
                     <span>Download Standard Scenario Template</span>
@@ -4056,15 +3869,15 @@ export default function App() {
 
               {/* Status Alerts */}
               {excelImportError && (
-                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center space-x-2">
-                  <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+                <div className="p-3 rounded-lg bg-danger-soft border border-rose-200 text-rose-800 text-xs flex items-center space-x-2">
+                  <AlertCircle className="h-4 w-4 text-danger flex-shrink-0" />
                   <span>{excelImportError}</span>
                 </div>
               )}
 
               {excelImportSuccess && (
-                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                <div className="p-3 rounded-lg bg-success-soft border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2">
+                  <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
                   <span>{excelImportSuccess}</span>
                 </div>
               )}
@@ -4075,19 +3888,19 @@ export default function App() {
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                     <div className="flex items-center space-x-2">
                       <span>Parsed Scenarios ({importedScenariosPreview.length})</span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px]">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs">
                         {importedScenariosPreview.filter(s => s.scenarioType === 'positive').length} Positive
                       </span>
-                      <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[11px]">
+                      <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-xs">
                         {importedScenariosPreview.filter(s => s.scenarioType === 'negative').length} Negative
                       </span>
                     </div>
-                    <span className="text-slate-400 font-normal text-[11px]">Click badge to toggle type</span>
+                    <span className="text-slate-400 font-normal text-xs">Click badge to toggle type</span>
                   </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+                  <div className="border border-border rounded-lg overflow-hidden max-h-72 overflow-y-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold sticky top-0 text-[11px]">
+                      <thead className="bg-slate-50 border-b border-border text-slate-600 font-semibold sticky top-0 text-xs">
                         <tr>
                           <th className="py-2 px-3 w-16">ID</th>
                           <th className="py-2 px-3 w-28">Type</th>
@@ -4100,7 +3913,7 @@ export default function App() {
                       <tbody className="divide-y divide-slate-100 text-slate-800">
                         {importedScenariosPreview.map((sc, idx) => (
                           <tr key={idx} className="hover:bg-slate-50 transition">
-                            <td className="py-2 px-3 font-mono text-blue-700 font-bold">{sc.id}</td>
+                            <td className="py-2 px-3 font-mono text-primary-hover font-bold">{sc.id}</td>
                             <td className="py-2 px-3">
                               <button
                                 type="button"
@@ -4117,32 +3930,32 @@ export default function App() {
                                 title="Click to toggle Positive / Negative"
                               >
                                 {sc.scenarioType === 'negative' ? (
-                                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-semibold">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
+                                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-danger-soft text-danger border border-rose-200 text-xs font-semibold">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-danger" />
                                     <span>Negative</span>
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                                  <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-success-soft text-success border border-emerald-200 text-xs font-semibold">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
                                     <span>Positive</span>
                                   </span>
                                 )}
                               </button>
                             </td>
-                            <td className="py-2 px-3 font-mono text-[11px] text-slate-600">{sc.ticketNumber || '—'}</td>
+                            <td className="py-2 px-3 font-mono text-xs text-slate-600">{sc.ticketNumber || '—'}</td>
                             <td className="py-2 px-3 font-medium text-slate-900 max-w-[280px] truncate" title={sc.testName}>
                               {sc.testName}
                             </td>
-                            <td className="py-2 px-3 text-center font-mono text-slate-500 text-[11px]">
+                            <td className="py-2 px-3 text-center font-mono text-muted text-xs">
                               {sc.stepCount}
                             </td>
                             <td className="py-2 px-3 text-center">
-                              <button
+                              <button aria-label="Remove row from import"
                                 type="button"
                                 onClick={() => {
                                   setImportedScenariosPreview(prev => prev.filter((_, i) => i !== idx));
                                 }}
-                                className="p-1 hover:bg-rose-50 rounded text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                                className="p-1 hover:bg-danger-soft rounded text-slate-400 hover:text-danger transition cursor-pointer"
                                 title="Remove row from import"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -4158,13 +3971,13 @@ export default function App() {
             </div>
 
             {/* Modal Footer */}
-            <div className="bg-slate-50 border-t border-slate-200 p-4 px-6 flex items-center justify-between">
+            <div className="bg-slate-50 border-t border-border p-4 px-6 flex items-center justify-between">
               <button
                 type="button"
                 onClick={handleDownloadSampleExcel}
                 className="text-xs text-slate-600 hover:text-slate-900 font-medium flex items-center space-x-1 cursor-pointer"
               >
-                <Download className="h-3.5 w-3.5 text-slate-500" />
+                <Download className="h-3.5 w-3.5 text-muted" />
                 <span>Download Sample .xlsx Template</span>
               </button>
 
@@ -4186,7 +3999,7 @@ export default function App() {
                   type="button"
                   onClick={handleConfirmImportScenarios}
                   disabled={importedScenariosPreview.length === 0 || isImportingExcel}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-success hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold shadow-xs flex items-center space-x-1.5 transition cursor-pointer"
                 >
                   {isImportingExcel ? (
                     <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -4201,8 +4014,8 @@ export default function App() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          
+        </Modal>
       )}
 
       {/* SALESFORCE ORG CONNECTOR MODAL */}
@@ -4220,21 +4033,26 @@ export default function App() {
       <TestTemplateLibraryModal
         isOpen={showTemplateLibraryModal}
         onClose={() => setShowTemplateLibraryModal(false)}
-        onSelectTemplate={handleLoadTemplate}
+        onSelectTemplate={(tmpl) => guardLeave(() => handleLoadTemplate(tmpl))}
         onImportToSuite={handleImportTemplateToSuite}
         onImportAllToSuite={handleImportAllTemplates}
+        orgObjects={orgStatus?.connected ? [...standardObjects, ...customObjects] : []}
       />
       <NightlyModal
         open={showNightly}
         onClose={() => setShowNightly(false)}
         tags={[...new Set(testCases.flatMap((t) => t.tags || []))]}
         defaultOrg={selectedOrg}
+        orgEnv={orgEnv}
+        orgEnvLabel={orgEnvLabel}
+        confirmSave={() => ensureProdConfirmed('save the nightly schedule')}
       />
       <OnboardingWizard
         open={showWizard}
         onClose={() => setShowWizard(false)}
         orgConnected={Boolean(orgStatus?.connected)}
         orgLabel={selectedOrg}
+        onTryDemo={handleWizardDemo}
         onOpenConnector={() => setShowOrgConnectorModal(true)}
         standardObjects={standardObjects}
         customObjects={customObjects}
@@ -4249,6 +4067,176 @@ export default function App() {
           <img src={zoomedScreenshot} alt="Step screenshot" className="max-h-full max-w-full rounded-lg shadow-2xl" />
         </div>
       )}
+
+      {/* Unsaved changes: Save / Discard / Cancel */}
+      <Modal
+        open={Boolean(leaveGate)}
+        onClose={() => setLeaveGate(null)}
+        title="Save changes to this test?"
+        size="sm"
+        footer={
+          <>
+            <button type="button" className={btn.ghost} onClick={() => setLeaveGate(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={btn.secondary}
+              onClick={() => {
+                const gate = leaveGate;
+                setLeaveGate(null);
+                clearDraft(testId);
+                gate?.proceed();
+              }}
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              className={btn.primary}
+              onClick={async () => {
+                const gate = leaveGate;
+                setLeaveGate(null);
+                if (await handleSaveTestCase()) gate?.proceed();
+              }}
+            >
+              Save
+            </button>
+          </>
+        }
+      >
+        <p>
+          <strong>{testId || 'This test'}</strong> has unsaved changes. Save them before you switch, or discard them.
+        </p>
+      </Modal>
+
+      {/* Step check errors: Fix first / Run anyway */}
+      <Modal
+        open={Boolean(runGate)}
+        onClose={() => {
+          runGate?.resolve(false);
+          setRunGate(null);
+        }}
+        title={`${stepCheckSummary.errors} step${stepCheckSummary.errors === 1 ? '' : 's'} will fail`}
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              className={btn.secondary}
+              onClick={() => {
+                runGate?.resolve(true);
+                setRunGate(null);
+              }}
+            >
+              Run anyway
+            </button>
+            <button
+              type="button"
+              className={btn.primary}
+              onClick={() => {
+                runGate?.resolve(false);
+                setRunGate(null);
+                setFocusRequest({ nonce: Date.now(), firstError: true });
+              }}
+            >
+              Fix first
+            </button>
+          </>
+        }
+      >
+        <p>Step check found steps Orgwright does not understand, empty values or fields that do not exist in this org. The run will stop at the first one.</p>
+      </Modal>
+
+      {/* Production guard */}
+      <Modal
+        open={Boolean(prodGate)}
+        onClose={() => {
+          prodGate?.resolve(false);
+          setProdGate(null);
+        }}
+        title="This is a production org"
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              className={btn.ghost}
+              onClick={() => {
+                prodGate?.resolve(false);
+                setProdGate(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={btn.danger}
+              disabled={prodTyped.trim() !== selectedOrg}
+              onClick={() => {
+                try {
+                  sessionStorage.setItem(`orgwright.prodConfirmed.${selectedOrg}`, '1');
+                } catch {}
+                prodGate?.resolve(true);
+                setProdGate(null);
+              }}
+            >
+              I understand, continue
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p>
+            You are about to {prodGate?.what} in <strong>{selectedOrg}</strong>, a <strong>production</strong> org. Tests create, edit and delete real records.
+          </p>
+          <label className="block">
+            <span className="text-xs font-medium text-slate-700">Type the org alias to confirm (asked once per session)</span>
+            <input
+              value={prodTyped}
+              onChange={(e) => setProdTyped(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border border-slate-300 px-2.5 font-mono text-sm focus:border-rose-500 focus:outline-none"
+              placeholder={selectedOrg}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+        </div>
+      </Modal>
+
+      {/* Keyboard shortcuts */}
+      <Modal
+        open={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+        title="Keyboard shortcuts"
+        size="sm"
+        footer={
+          <button type="button" className={btn.primary} onClick={() => setShowShortcuts(false)}>
+            Done
+          </button>
+        }
+      >
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+          {[
+            ['Ctrl+Enter', 'Run test (or Retry / Resume when paused)'],
+            ['Ctrl+S', 'Save the test'],
+            ['Ctrl+K', 'Open a saved test'],
+            ['Ctrl+Space', 'Step suggestions in the editor'],
+            ['{{', 'Insert test data in a step'],
+            ['← / →', 'Move between tabs when a tab has focus'],
+            ['Esc', 'Close a dialog or menu'],
+            ['Click the live browser', 'Send your keystrokes to Salesforce (Tab still moves focus)']
+          ].map(([k, d]) => (
+            <React.Fragment key={k}>
+              <dt>
+                <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-xs">{k}</kbd>
+              </dt>
+              <dd className="text-slate-700">{d}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      </Modal>
     </div>
+    </RunContext.Provider>
   );
 }

@@ -15,8 +15,12 @@ import {
   RefreshCw,
   Search,
   Sparkles,
-  Wand2
+  Wand2,
+  Plus,
+  X,
+  Play
 } from 'lucide-react';
+import { useToast } from './ui/Toast';
 
 // ---------------------------------------------------------------------------
 // Types returned by the Studio server (/api/steps/*, /api/org/describe)
@@ -101,9 +105,50 @@ export interface StepEditorProps {
   isPaused?: boolean;
   placeholder?: string;
   onSummaryChange?: (summary: StepCheckSummary) => void;
+  /** Change `nonce` to focus a line: a given line number, or the first line with an error */
+  focusRequest?: { nonce: number; line?: number; stepIndex?: number; firstError?: boolean };
+  /** Change to open the phrasebook / cheat sheet */
+  openCheatSheetNonce?: number;
+  /** Drives the gutter: the step running now and the per-step results of the last report */
+  runMarkers?: RunMarkers;
 }
 
+export interface RunMarkers {
+  /** Text of the step being executed right now (only while a run is active) */
+  liveStepText?: string;
+  /** Per-step results of the last run of this test */
+  results?: Array<{ stepIndex: number; stepText?: string; status: 'passed' | 'failed' | 'skipped' }>;
+}
+
+type GutterMark = 'running' | 'failed' | 'error' | 'warning' | 'passed' | 'ok' | null;
+
+/** Step text without its "3." numbering, lower-cased, for loose matching */
+function normStep(text: string): string {
+  return String(text || '')
+    .replace(/^\s*(?:step\s+)?\d+[.:)\-]\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+const LINE_PX = 20;
+const PAD_PX = 12;
+
 const QUOTE_CHARS = ['"', '“', '”'];
+
+/** With field metadata loaded, a field that does not exist will fail the run, so it is an error, not a warning. */
+function promoteUnknownFields(insights: StepInsight[], metadataLoaded: boolean): StepInsight[] {
+  if (!metadataLoaded) return insights;
+  return insights.map((ins) => {
+    const unknown = ins.issues.some((i) => i.severity === 'warning' && /^No field labelled/i.test(i.message));
+    if (!unknown) return ins;
+    return {
+      ...ins,
+      status: 'error',
+      issues: ins.issues.map((i) => (i.severity === 'warning' && /^No field labelled/i.test(i.message) ? { ...i, severity: 'error' as const } : i))
+    };
+  });
+}
 
 function countQuotes(text: string): number {
   let n = 0;
@@ -241,12 +286,20 @@ export function StepEditor({
   isRecording,
   isPaused,
   placeholder,
-  onSummaryChange
+  onSummaryChange,
+  focusRequest,
+  openCheatSheetNonce,
+  runMarkers
 }: StepEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
+  const [rewrite, setRewrite] = useState<{ lineNumber: number; from: string; to: string } | null>(null);
+  const [phraseQuery, setPhraseQuery] = useState('');
   const [insights, setInsights] = useState<StepInsight[]>([]);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [checkRetry, setCheckRetry] = useState(0);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [fields, setFields] = useState<FieldMeta[]>([]);
   const [objectLabel, setObjectLabel] = useState<string>('');
@@ -357,7 +410,7 @@ export function StepEditor({
         .then((r) => r.json())
         .then((d) => {
           if (d.success) {
-            setInsights(d.insights || []);
+            setInsights(promoteUnknownFields(d.insights || [], fieldsStatus === 'loaded'));
             setCatalogLoaded(Boolean(d.catalogLoaded));
             setCheckError(null);
           } else {
@@ -368,7 +421,7 @@ export function StepEditor({
         .finally(() => setChecking(false));
     }, 450);
     return () => clearTimeout(handle);
-  }, [value, objectContext, selectedOrg, fieldsStatus, dataColumns.join('|'), blocks.length]);
+  }, [value, objectContext, selectedOrg, fieldsStatus, dataColumns.join('|'), blocks.length, checkRetry]);
 
   const summary: StepCheckSummary = useMemo(
     () => ({
@@ -600,18 +653,28 @@ export function StepEditor({
   };
 
   // ---------------------------------------------------------------- line edits
+  /** Every edit the editor makes on the tester's behalf can be undone from a toast */
+  const applyEdit = (next: string, message: string) => {
+    const previous = value;
+    onChange(next);
+    toast({ message, action: { label: 'Undo', onClick: () => onChange(previous) } });
+  };
+
   const replaceLine = (lineNumber: number, newText: string) => {
     const lines = value.split('\n');
     if (lineNumber - 1 < lines.length) {
-      lines[lineNumber - 1] = newText;
-      onChange(lines.join('\n'));
+      // Keep the tester's "3." numbering when the suggestion has none
+      const numbering = lines[lineNumber - 1].match(/^\s*(?:step\s+)?\d+[.:)\-]\s*/i)?.[0] || '';
+      const hasOwnNumber = /^\s*(?:step\s+)?\d+[.:)\-]\s*/i.test(newText);
+      lines[lineNumber - 1] = hasOwnNumber ? newText : `${numbering}${newText}`;
+      applyEdit(lines.join('\n'), `Line ${lineNumber} rewritten`);
     }
   };
 
   const appendStep = (stepText: string) => {
     const n = nextStepNumber(value);
     const base = value.replace(/\s+$/, '');
-    onChange(`${base}${base ? '\n' : ''}${n}. ${stepText}`);
+    applyEdit(`${base}${base ? '\n' : ''}${n}. ${stepText}`, `Added step ${n}`);
   };
 
   const focusLine = (lineNumber: number) => {
@@ -623,6 +686,47 @@ export function StepEditor({
     el.focus();
     el.setSelectionRange(pos, pos + (lines[lineNumber - 1]?.length || 0));
   };
+
+  // Parent asks to focus a line (Fix first, Edit step N)
+  useEffect(() => {
+    if (!focusRequest) return;
+    if (focusRequest.firstError) {
+      const first = insights.find((i) => i.status === 'error');
+      if (first) {
+        setShowCheck(true);
+        focusLine(first.lineNumber);
+        return;
+      }
+    }
+    if (focusRequest.line) {
+      focusLine(focusRequest.line);
+      return;
+    }
+    if (focusRequest.stepIndex) {
+      const byIndex = insights.find((i) => i.index === focusRequest.stepIndex);
+      if (byIndex) {
+        focusLine(byIndex.lineNumber);
+        return;
+      }
+      // Fall back to the Nth non-empty line
+      const lines = value.split('\n');
+      let seen = 0;
+      for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        seen++;
+        if (seen === focusRequest.stepIndex) {
+          focusLine(i + 1);
+          return;
+        }
+      }
+    }
+    textareaRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusRequest?.nonce]);
+
+  useEffect(() => {
+    if (openCheatSheetNonce) setShowCheatSheet(true);
+  }, [openCheatSheetNonce]);
 
   // Save the selected lines (or all lines) as a reusable block
   const saveSelectionAsBlock = async () => {
@@ -663,7 +767,7 @@ export function StepEditor({
       .filter((l) => l.length > 0 && !/^(?:log\s*in(?:to)?|login|sign\s*in)\b/i.test(l));
     const all = [...opening, ...existing];
     const next = all.map((l, i) => `${i + 1}. ${l}`).join('\n') + (existing.length ? '' : '\n5. ');
-    onChange(next);
+    applyEdit(next, 'Added the app opening steps');
     // Put the cursor inside the app name quotes
     requestAnimationFrame(() => {
       const el = textareaRef.current;
@@ -738,22 +842,116 @@ export function StepEditor({
     if (api !== objectContext) onObjectChange?.(api);
   };
 
+  // ---------------------------------------------------------------- gutter
+  const lineTexts = useMemo(() => value.split('\n'), [value]);
+  const gutterMarks: GutterMark[] = useMemo(() => {
+    // step index (1-based, non-empty lines) -> line number
+    const lineOfStep = new Map<number, number>();
+    insights.forEach((i) => lineOfStep.set(i.index, i.lineNumber));
+    let seen = 0;
+    lineTexts.forEach((l, i) => {
+      if (!l.trim()) return;
+      seen++;
+      if (!lineOfStep.has(seen)) lineOfStep.set(seen, i + 1);
+    });
+    const report = new Map<number, 'passed' | 'failed'>();
+    (runMarkers?.results || []).forEach((r) => {
+      const ln = lineOfStep.get(r.stepIndex);
+      if (!ln || r.status === 'skipped') return;
+      // Ignore results for lines edited since that run
+      if (r.stepText && normStep(r.stepText) !== normStep(lineTexts[ln - 1] || '')) return;
+      report.set(ln, r.status);
+    });
+    let running: number | null = null;
+    const live = runMarkers?.liveStepText;
+    if (live) {
+      const byIndex = live.match(/\bstep\s+(\d+)\b/i);
+      const target = normStep(live.replace(/^.*?step\s+\d+\s*:\s*/i, ''));
+      const idx = lineTexts.findIndex((l) => l.trim() && (normStep(l) === target || (target.length > 8 && normStep(l).includes(target))));
+      if (idx >= 0) running = idx + 1;
+      else if (byIndex) running = lineOfStep.get(Number(byIndex[1])) ?? null;
+    }
+    return lineTexts.map((l, i) => {
+      const ln = i + 1;
+      if (!l.trim()) return null;
+      if (running === ln) return 'running';
+      if (report.get(ln) === 'failed') return 'failed';
+      const ins = insightByLine.get(ln);
+      if (ins?.status === 'error') return 'error';
+      if (ins?.status === 'warning') return 'warning';
+      if (report.get(ln) === 'passed') return 'passed';
+      if (ins?.status === 'ok') return 'ok';
+      return null;
+    });
+  }, [lineTexts, insights, insightByLine, runMarkers]);
+
+  const syncGutter = () => {
+    if (gutterRef.current && textareaRef.current) gutterRef.current.style.transform = `translateY(${-textareaRef.current.scrollTop}px)`;
+  };
+
+  const markTitle: Record<Exclude<GutterMark, null>, string> = {
+    running: 'Running now',
+    failed: 'Failed in the last run',
+    error: 'Needs fixing before it can run',
+    warning: 'Worth reviewing',
+    passed: 'Passed in the last run',
+    ok: 'Step check: ready'
+  };
+
+  // Phrasebook search
+  const filteredPatternGroups = useMemo(() => {
+    const q = phraseQuery.trim().toLowerCase();
+    if (!q) return patternGroups;
+    return patternGroups
+      .map(([cat, items]) => [cat, items.filter((p) => `${cat} ${p.label} ${p.example}`.toLowerCase().includes(q))] as [string, StepPattern[]])
+      .filter(([, items]) => items.length > 0);
+  }, [patternGroups, phraseQuery]);
+
   // ---------------------------------------------------------------- render
   return (
     <div className="space-y-2">
-      <div className="relative">
+      <div className="relative flex">
+        {/* Gutter: ✓ ⚠ ✗ ▶ per line (step check, live run, last report) */}
+        <div className="relative w-6 flex-shrink-0 overflow-hidden" aria-hidden="true">
+          <div ref={gutterRef} style={{ paddingTop: PAD_PX + 1 }}>
+            {gutterMarks.map((m, i) => (
+              <div
+                key={i}
+                style={{ height: LINE_PX, lineHeight: `${LINE_PX}px` }}
+                title={m ? `Line ${i + 1}: ${markTitle[m]}` : undefined}
+                className={`text-center text-[11px] font-bold select-none ${
+                  m === 'running'
+                    ? 'text-primary motion-safe:animate-pulse'
+                    : m === 'failed' || m === 'error'
+                    ? 'text-danger'
+                    : m === 'warning'
+                    ? 'text-warning'
+                    : m === 'passed'
+                    ? 'text-success'
+                    : 'text-muted/50'
+                }`}
+              >
+                {m === 'running' ? '▶' : m === 'failed' || m === 'error' ? '✗' : m === 'warning' ? '⚠' : m === 'passed' || m === 'ok' ? '✓' : ''}
+              </div>
+            ))}
+          </div>
+        </div>
         <textarea
           ref={textareaRef}
           rows={9}
           spellCheck={false}
-          className={`w-full bg-slate-50 border rounded-lg p-3 text-xs font-mono text-slate-800 focus:outline-none resize-y leading-relaxed transition ${
+          wrap="off"
+          aria-label="Test steps, one per line"
+          onScroll={syncGutter}
+          style={{ lineHeight: `${LINE_PX}px`, padding: PAD_PX }}
+          className={`w-full bg-slate-50 border rounded-lg text-xs font-mono text-slate-800 focus:outline-none resize-y overflow-x-auto whitespace-pre transition ${
             isRecording
               ? 'border-rose-400 bg-white ring-2 ring-rose-100'
               : isPaused
               ? 'border-amber-400 bg-white ring-2 ring-amber-100'
               : summary.errors > 0
               ? 'border-rose-300 focus:bg-white focus:border-rose-400 focus:ring-2 focus:ring-rose-500/10'
-              : 'border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10'
+              : 'border-slate-300 focus:bg-white focus:border-primary focus:ring-2 focus:ring-primary/10'
           }`}
           value={value}
           onChange={(e) => {
@@ -769,8 +967,8 @@ export function StepEditor({
         />
 
         {suggest && suggest.items.length > 0 && (
-          <div className="absolute left-2 right-2 top-full -mt-1 z-30 bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden">
-            <div className="flex items-center justify-between px-2.5 py-1 bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500">
+          <div className="absolute left-8 right-2 top-full -mt-1 z-30 bg-white border border-border rounded-lg shadow-lg overflow-hidden">
+            <div className="flex items-center justify-between px-2.5 py-1 bg-slate-50 border-b border-border text-xs text-muted">
               <span className="font-semibold uppercase tracking-wide">{suggest.title}</span>
               <span>Tab to insert · ↑↓ to move · Esc to close</span>
             </div>
@@ -784,11 +982,11 @@ export function StepEditor({
                       applySuggestion(item, suggest);
                     }}
                     className={`w-full text-left px-2.5 py-1.5 flex items-center justify-between gap-3 text-xs cursor-pointer ${
-                      i === suggest.active ? 'bg-blue-50 text-blue-900' : 'hover:bg-slate-50 text-slate-800'
+                      i === suggest.active ? 'bg-primary-soft text-blue-900' : 'hover:bg-slate-50 text-slate-800'
                     }`}
                   >
                     <span className="font-mono truncate">{item.label}</span>
-                    {item.detail && <span className="text-[11px] text-slate-500 truncate max-w-[55%]">{item.detail}</span>}
+                    {item.detail && <span className="text-xs text-muted truncate max-w-[55%]">{item.detail}</span>}
                   </button>
                 </li>
               ))}
@@ -798,8 +996,8 @@ export function StepEditor({
       </div>
 
       {/* Toolbar: field metadata + cheat sheet */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-        <div className="flex flex-wrap items-center gap-1.5 text-slate-500">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 text-muted">
           {/* Object picker: drives field suggestions, checks and the cheat sheet */}
           <div className="relative">
             <button
@@ -808,14 +1006,14 @@ export function StepEditor({
               className="flex items-center gap-1 px-2 py-0.5 rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 cursor-pointer"
               title="Object these steps work on — used for field suggestions, checks and the cheat sheet"
             >
-              <Boxes className="h-3 w-3 text-slate-500" />
+              <Boxes className="h-3 w-3 text-muted" />
               <span className="font-semibold">{objectLabel && fieldsStatus === 'loaded' ? objectLabel : prettyObject(objectContext || 'Select object')}</span>
-              {/__c$/i.test(objectContext) && <span className="font-mono text-[11px] text-slate-400">{objectContext}</span>}
+              {/__c$/i.test(objectContext) && <span className="font-mono text-xs text-slate-400">{objectContext}</span>}
               <ChevronDown className="h-3 w-3 text-slate-400" />
             </button>
             {objectPickerOpen && (
-              <div className="absolute left-0 top-full mt-1 z-40 w-72 bg-white border border-slate-200 rounded-lg shadow-lg">
-                <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-slate-200">
+              <div className="absolute left-0 top-full mt-1 z-40 w-72 bg-white border border-border rounded-lg shadow-lg">
+                <div className="flex items-center gap-1.5 px-2 py-1.5 border-b border-border">
                   <Search className="h-3.5 w-3.5 text-slate-400" />
                   <input
                     autoFocus
@@ -831,7 +1029,7 @@ export function StepEditor({
                 </div>
                 <ul className="max-h-64 overflow-y-auto py-1">
                   {filteredObjects.length === 0 && (
-                    <li className="px-2.5 py-1.5 text-[11px] text-slate-500">
+                    <li className="px-2.5 py-1.5 text-xs text-muted">
                       {allObjects.length ? 'No matching object' : 'Object list not loaded — check the org connection'}
                     </li>
                   )}
@@ -840,12 +1038,12 @@ export function StepEditor({
                       <button
                         type="button"
                         onClick={() => chooseObject(o.api)}
-                        className={`w-full text-left px-2.5 py-1 flex items-center justify-between text-xs cursor-pointer hover:bg-blue-50 ${
-                          o.api === objectContext ? 'bg-blue-50 text-blue-800 font-semibold' : 'text-slate-800'
+                        className={`w-full text-left px-2.5 py-1 flex items-center justify-between text-xs cursor-pointer hover:bg-primary-soft ${
+                          o.api === objectContext ? 'bg-primary-soft text-blue-800 font-semibold' : 'text-slate-800'
                         }`}
                       >
                         <span className="truncate">{prettyObject(o.api)}</span>
-                        <span className="font-mono text-[11px] text-slate-400 ml-2 truncate">
+                        <span className="font-mono text-xs text-slate-400 ml-2 truncate">
                           {o.custom ? o.api : 'standard'}
                         </span>
                       </button>
@@ -860,7 +1058,7 @@ export function StepEditor({
           {fieldsStatus === 'loading' && <span>Loading fields…</span>}
           {fieldsStatus === 'loaded' && <span>{fields.length} fields loaded</span>}
           {fieldsStatus === 'failed' && (
-            <span className="text-amber-700" title={fieldsError || ''}>
+            <span className="text-warning" title={fieldsError || ''}>
               Field checks off — couldn't load fields from {selectedOrg}
             </span>
           )}
@@ -868,7 +1066,7 @@ export function StepEditor({
             <button
               type="button"
               onClick={() => loadFields(true)}
-              className="text-blue-700 hover:underline cursor-pointer flex items-center gap-0.5"
+              className="text-primary-hover hover:underline cursor-pointer flex items-center gap-0.5"
               title="Re-read field metadata from the org"
             >
               <RefreshCw className="h-3 w-3" />
@@ -876,13 +1074,13 @@ export function StepEditor({
             </button>
           )}
         </div>
-        <div className="flex items-center gap-2 text-slate-500">
+        <div className="flex items-center gap-2 text-muted">
           <span className="hidden md:inline">Ctrl+Space for suggestions · type {'{{'} for test data</span>
           {!hasOpening && (
             <button
               type="button"
               onClick={insertOpeningSteps}
-              className="flex items-center gap-1 px-2 py-0.5 rounded border bg-white border-slate-200 text-slate-700 hover:bg-slate-50 cursor-pointer"
+              className="flex items-center gap-1 px-2 py-0.5 rounded border bg-white border-border text-slate-700 hover:bg-slate-50 cursor-pointer"
               title="Adds: Log in to Salesforce, Click App Launcher, Search app, Select tab"
             >
               <LayoutGrid className="h-3 w-3" />
@@ -893,7 +1091,7 @@ export function StepEditor({
             type="button"
             onClick={() => setShowBlocks((s) => !s)}
             className={`flex items-center gap-1 px-2 py-0.5 rounded border cursor-pointer ${
-              showBlocks ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              showBlocks ? 'bg-primary-soft border-blue-200 text-primary-hover' : 'bg-white border-border text-slate-700 hover:bg-slate-50'
             }`}
           >
             <Layers3 className="h-3 w-3" />
@@ -903,35 +1101,35 @@ export function StepEditor({
             type="button"
             onClick={() => setShowCheatSheet((s) => !s)}
             className={`flex items-center gap-1 px-2 py-0.5 rounded border cursor-pointer ${
-              showCheatSheet ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+              showCheatSheet ? 'bg-primary-soft border-blue-200 text-primary-hover' : 'bg-white border-border text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <BookOpen className="h-3 w-3" />
-            <span>Cheat sheet</span>
+            <Plus className="h-3 w-3" />
+            <span>Add step</span>
           </button>
         </div>
       </div>
 
       {showBlocks && (
-        <div className="border border-slate-200 rounded-lg p-2.5 space-y-2 text-[12px]">
+        <div className="border border-border rounded-lg p-2.5 space-y-2 text-[12px]">
           <div className="text-slate-600">
             Blocks are named groups of steps you reuse across tests, e.g. login and opening a record. Add one to a test with{' '}
-            <code className="text-[11px]">Use block "Name"</code>.
+            <code className="text-xs">Use block "Name"</code>.
           </div>
           {blocks.length > 0 && (
-            <ul className="divide-y divide-slate-100 border border-slate-200 rounded">
+            <ul className="divide-y divide-slate-100 border border-border rounded">
               {blocks.map((b) => (
                 <li key={b.name} className="flex items-center justify-between gap-2 px-2 py-1">
                   <span className="min-w-0">
                     <span className="font-medium text-slate-800">{b.name}</span>
-                    <span className="text-slate-500"> · {b.steps.length} steps</span>
-                    <span className="block truncate text-[11px] text-slate-400" title={b.steps.join('\n')}>{b.steps.join(' → ')}</span>
+                    <span className="text-muted"> · {b.steps.length} steps</span>
+                    <span className="block truncate text-xs text-slate-400" title={b.steps.join('\n')}>{b.steps.join(' → ')}</span>
                   </span>
                   <span className="flex items-center gap-1 flex-shrink-0">
-                    <button type="button" onClick={() => appendStep(`Use block "${b.name}"`)} className="px-2 py-0.5 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer">
+                    <button type="button" onClick={() => appendStep(`Use block "${b.name}"`)} className="px-2 py-0.5 rounded border border-border hover:bg-slate-50 cursor-pointer">
                       Insert
                     </button>
-                    <button type="button" onClick={() => removeBlock(b.name)} className="p-1 text-slate-400 hover:text-rose-700 cursor-pointer" aria-label={`Delete block ${b.name}`}>
+                    <button type="button" onClick={() => removeBlock(b.name)} className="p-1 text-slate-400 hover:text-danger cursor-pointer" aria-label={`Delete block ${b.name}`}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </span>
@@ -944,7 +1142,7 @@ export function StepEditor({
               value={blockName}
               onChange={(e) => setBlockName(e.target.value)}
               placeholder="New block name, e.g. Login and open recent Encounter"
-              className="h-7 flex-1 rounded border border-slate-300 px-2 focus:outline-none focus:border-blue-500"
+              className="h-7 flex-1 rounded border border-slate-300 px-2 focus:outline-none focus:border-primary"
             />
             <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={saveSelectionAsBlock} className="h-7 inline-flex items-center gap-1 rounded border border-slate-300 px-2 hover:bg-slate-50 cursor-pointer" title="Saves the lines you selected in the editor (or all lines)">
               <Save className="h-3.5 w-3.5" /> Save selected lines
@@ -955,7 +1153,7 @@ export function StepEditor({
       )}
 
       {suggestedObject && onObjectChange && (
-        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-warning-soft border border-amber-200 text-xs text-amber-900">
           <span>
             Your steps open <strong>{prettyObject(suggestedObject)}</strong>, but fields are being checked against{' '}
             <strong>{objectLabel || prettyObject(objectContext)}</strong>.
@@ -972,22 +1170,48 @@ export function StepEditor({
 
       {/* Cheat sheet */}
       {showCheatSheet && (
-        <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-2.5 space-y-2 max-h-72 overflow-y-auto">
-          <div className="text-[11px] text-slate-600">
+        <div className="border border-blue-100 bg-primary-soft/40 rounded-lg p-2.5 space-y-2 max-h-80 overflow-y-auto" role="region" aria-label="Phrasebook">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+            <span className="text-xs font-semibold text-slate-800">Phrasebook</span>
+            <div className="relative flex-1">
+              <Search className="h-3 w-3 text-slate-400 absolute left-2 top-1.5" aria-hidden="true" />
+              <input
+                autoFocus
+                value={phraseQuery}
+                onChange={(e) => setPhraseQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setShowCheatSheet(false);
+                  if (e.key === 'Enter') {
+                    const first = filteredPatternGroups[0]?.[1][0];
+                    if (first) appendStep(first.example);
+                  }
+                }}
+                placeholder="Find a phrase: picklist, toast, related list…"
+                aria-label="Search the phrasebook"
+                className="h-6 w-full rounded border border-slate-300 bg-white pl-6 pr-2 text-xs focus:outline-none focus:border-primary"
+              />
+            </div>
+            <button type="button" onClick={() => setShowCheatSheet(false)} className="p-0.5 rounded text-muted hover:text-slate-900 cursor-pointer" aria-label="Close phrasebook">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {filteredPatternGroups.length === 0 && <div className="text-xs text-muted">No phrase matches “{phraseQuery}”.</div>}
+          <div className="text-xs text-slate-600">
             {Object.keys(objectExamples).length > 0
               ? `Examples use real ${objectLabel || objectContext} fields. Click one to add it as the next step.`
               : 'Click an example to add it as the next step, then edit the quoted values.'}
           </div>
-          {patternGroups.map(([category, items]) => (
+          {filteredPatternGroups.map(([category, items]) => (
             <div key={category}>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">{category}</div>
+              <div className="text-xs font-bold uppercase tracking-wide text-muted mb-1">{category}</div>
               <div className="flex flex-wrap gap-1">
                 {items.map((p) => (
                   <button
                     key={p.example}
                     type="button"
                     onClick={() => appendStep(p.example)}
-                    className="px-2 py-0.5 rounded bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-[11px] font-mono text-slate-700 cursor-pointer"
+                    className="px-2 py-0.5 rounded bg-white border border-border hover:border-blue-300 hover:bg-primary-soft text-xs font-mono text-slate-700 cursor-pointer"
                     title={p.label}
                   >
                     {p.example}
@@ -998,11 +1222,11 @@ export function StepEditor({
           ))}
           {tokens.length > 0 && (
             <div>
-              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-1">Test data tokens (fresh every run)</div>
+              <div className="text-xs font-bold uppercase tracking-wide text-muted mb-1">Test data tokens (fresh every run)</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                 {tokens.map((t) => (
-                  <div key={t.token} className="flex items-center gap-2 text-[11px]">
-                    <code className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-emerald-700">{t.token}</code>
+                  <div key={t.token} className="flex items-center gap-2 text-xs">
+                    <code className="px-1.5 py-0.5 rounded bg-white border border-border text-success">{t.token}</code>
                     <span className="text-slate-600 truncate">{t.description}</span>
                   </div>
                 ))}
@@ -1013,65 +1237,96 @@ export function StepEditor({
       )}
 
       {/* Live step check */}
-      {insights.length > 0 && (
-        <div className="border border-slate-200 rounded-lg overflow-hidden">
+      {(insights.length > 0 || checkError) && (
+        <div className="border border-border rounded-lg overflow-hidden">
           <button
             type="button"
             onClick={() => setShowCheck((s) => !s)}
-            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-50 border-b border-slate-200 text-[11px] cursor-pointer"
+            className="w-full flex items-center justify-between px-2.5 py-1.5 bg-slate-50 border-b border-border text-xs cursor-pointer"
           >
             <span className="flex items-center gap-2 font-semibold text-slate-700">
-              <Sparkles className="h-3.5 w-3.5 text-blue-600" />
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
               <span>Step check</span>
               {checking && <RefreshCw className="h-3 w-3 animate-spin text-slate-400" />}
-              <span className="text-emerald-700 font-medium">{summary.ok} ready</span>
-              {summary.warnings > 0 && <span className="text-amber-700 font-medium">{summary.warnings} to review</span>}
-              {summary.errors > 0 && <span className="text-rose-700 font-medium">{summary.errors} need fixing</span>}
+              {checkError && <span className="text-danger font-medium">Unavailable</span>}
+              <span className="sr-only" aria-live="polite">{`Step check: ${summary.ok} ready, ${summary.warnings} to review, ${summary.errors} need fixing`}</span>
+              <span className="text-success font-medium" aria-hidden="true">{summary.ok} ready</span>
+              {summary.warnings > 0 && <span className="text-warning font-medium">{summary.warnings} to review</span>}
+              {summary.errors > 0 && <span className="text-danger font-medium">{summary.errors} need fixing</span>}
               {!catalogLoaded && fieldsStatus !== 'loaded' && <span className="text-slate-400 font-normal">(phrasing only)</span>}
             </span>
             <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${showCheck ? 'rotate-180' : ''}`} />
           </button>
-          {checkError && <div className="px-2.5 py-1 text-[11px] text-rose-700 bg-rose-50">{checkError}</div>}
+          {checkError && (
+            <div className="px-2.5 py-1 text-xs text-danger bg-danger-soft flex items-center justify-between gap-2">
+              <span>Step check unavailable: {checkError}</span>
+              <button type="button" onClick={() => setCheckRetry((n) => n + 1)} disabled={checking} className="px-2 py-0.5 rounded border border-rose-300 bg-white hover:bg-rose-100 font-semibold cursor-pointer disabled:opacity-50">
+                Retry
+              </button>
+            </div>
+          )}
           {showCheck && (
             <ul className="max-h-64 overflow-y-auto divide-y divide-slate-100">
               {insights.map((ins) => (
-                <li key={`${ins.lineNumber}-${ins.rawText}`} className="px-2.5 py-1.5 text-[11px]">
+                <li key={`${ins.lineNumber}-${ins.rawText}`} className="px-2.5 py-1.5 text-xs">
                   <div className="flex items-start gap-2">
                     {ins.status === 'ok' ? (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success mt-0.5 flex-shrink-0" />
                     ) : ins.status === 'warning' ? (
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5 flex-shrink-0" />
                     ) : (
-                      <AlertCircle className="h-3.5 w-3.5 text-rose-600 mt-0.5 flex-shrink-0" />
+                      <AlertCircle className="h-3.5 w-3.5 text-danger mt-0.5 flex-shrink-0" />
                     )}
                     <button
                       type="button"
                       onClick={() => focusLine(ins.lineNumber)}
-                      className="text-slate-400 font-mono w-6 text-right flex-shrink-0 hover:text-blue-700 cursor-pointer"
+                      className="text-slate-400 font-mono w-6 text-right flex-shrink-0 hover:text-primary-hover cursor-pointer"
                       title="Jump to this line"
                     >
                       {ins.lineNumber}
                     </button>
                     <span
-                      className={`px-1.5 rounded text-[11px] font-semibold flex-shrink-0 border ${
+                      className={`px-1.5 rounded text-xs font-semibold flex-shrink-0 border ${
                         ins.status === 'error'
-                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          ? 'bg-danger-soft text-danger border-rose-200'
                           : ins.actionType.startsWith('assert')
                           ? 'bg-purple-50 text-purple-700 border-purple-200'
                           : ins.actionType === 'remember_value'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                          ? 'bg-success-soft text-success border-emerald-200'
+                          : 'bg-primary-soft text-primary-hover border-blue-200'
                       }`}
                     >
                       {ins.actionLabel}
                     </span>
                     <span className={`min-w-0 ${ins.status === 'error' ? 'text-rose-800' : 'text-slate-700'}`}>{ins.summary}</span>
                   </div>
+                  {rewrite && rewrite.lineNumber === ins.lineNumber && (
+                    <div className="ml-[3.25rem] mt-1 rounded border border-blue-200 bg-primary-soft/60 p-1.5 space-y-1">
+                      <div className="text-xs font-semibold text-slate-700">Rewrite line {ins.lineNumber} as…</div>
+                      <div className="font-mono text-xs text-rose-800 line-through decoration-rose-400">{rewrite.from}</div>
+                      <div className="font-mono text-xs text-emerald-800">{rewrite.to}</div>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            replaceLine(rewrite.lineNumber, rewrite.to);
+                            setRewrite(null);
+                          }}
+                          className="px-2 py-0.5 rounded bg-primary text-white text-xs font-medium hover:bg-primary-hover cursor-pointer"
+                        >
+                          Apply
+                        </button>
+                        <button type="button" onClick={() => setRewrite(null)} className="px-2 py-0.5 rounded border border-slate-300 bg-white text-xs cursor-pointer">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   {ins.issues.map((issue, k) => (
                     <div key={k} className="ml-[3.25rem] mt-1 space-y-1">
                       <div
                         className={`flex items-start gap-1 ${
-                          issue.severity === 'error' ? 'text-rose-700' : issue.severity === 'warning' ? 'text-amber-800' : 'text-slate-500'
+                          issue.severity === 'error' ? 'text-danger' : issue.severity === 'warning' ? 'text-amber-800' : 'text-muted'
                         }`}
                       >
                         {issue.severity === 'info' && <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />}
@@ -1083,11 +1338,11 @@ export function StepEditor({
                             <button
                               key={sugg}
                               type="button"
-                              onClick={() => replaceLine(ins.lineNumber, sugg)}
-                              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-[11px] font-mono text-slate-700 cursor-pointer"
-                              title="Replace this line"
+                              onClick={() => setRewrite({ lineNumber: ins.lineNumber, from: lineTexts[ins.lineNumber - 1] || ins.rawText, to: sugg })}
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white border border-border hover:border-blue-300 hover:bg-primary-soft text-xs font-mono text-slate-700 cursor-pointer"
+                              title="Preview this rewrite"
                             >
-                              <Wand2 className="h-3 w-3 text-blue-600" />
+                              <Wand2 className="h-3 w-3 text-primary" />
                               <span>{sugg}</span>
                             </button>
                           ))}

@@ -11,12 +11,12 @@ import { resolveTestSteps } from '@orgwright/resolver';
 import { generatePlaywrightSpec } from '@orgwright/codegen';
 import { executePlaywrightTest, stopTestExecution, isTestRunning } from '@orgwright/runner';
 import { getCachedMetadata } from '@orgwright/introspector';
-import { ROOT_DIR, isValidTestId } from './lib/paths';
+import { ROOT_DIR, ORGWRIGHT_DIR, isValidTestId } from './lib/paths';
 import { resolveWithCatalog } from './lib/catalog';
 import { expandBlocks } from './lib/blocks';
 import { buildSpec, clearTelemetry, readRunOutcome, toLines } from './lib/spec-builder';
 import { appendHistory, summarizeHistory } from './lib/history';
-import { runSuite } from './lib/suite-runner';
+import { runSuite, readDefinitions, hasTag } from './lib/suite-runner';
 import { registerStepRoutes } from './routes/steps';
 import { registerSuiteRoutes } from './routes/suite';
 import {
@@ -493,8 +493,7 @@ function ensureSeedDefinitions() {
 7. Click on Save button
 8. Verify toast "Account was created"
 9. Verify field "Account Name" equals "Acme Corporation"`,
-      lastStatus: 'passed',
-      lastDurationMs: 14200,
+      lastStatus: 'idle',
       updatedAt: new Date().toISOString()
     },
     {
@@ -512,8 +511,7 @@ function ensureSeedDefinitions() {
 6. Select "Working - Contacted" from Lead Status
 7. Click on Save button
 8. Verify field "Lead Status" equals "Working - Contacted"`,
-      lastStatus: 'passed',
-      lastDurationMs: 12800,
+      lastStatus: 'idle',
       updatedAt: new Date().toISOString()
     },
     {
@@ -748,52 +746,107 @@ app.post('/api/testcases/save-batch', (req, res) => {
     }
 
     let savedCount = 0;
-    const results = [];
+    const results: any[] = [];
+    const failures: Array<{ id: string; error: string }> = [];
 
     for (const tc of testCases) {
-      const id = tc.id || `TC_IMP_${Date.now()}_${savedCount + 1}`;
-      const filePath = path.join(definitionsDir, `${id}.json`);
-      let existingData: any = {};
-      if (fs.existsSync(filePath)) {
-        try { existingData = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch {}
+      const id = String(tc.id || `TC_IMP_${Date.now()}_${savedCount + 1}`).trim();
+      try {
+        if (!isValidTestId(id)) throw new Error('Test ID may only contain letters, digits, _ and - (max 80)');
+        const filePath = path.join(definitionsDir, `${id}.json`);
+        let existingData: any = {};
+        if (fs.existsSync(filePath)) {
+          try { existingData = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch {}
+        }
+        const stepsStr = Array.isArray(tc.steps) ? tc.steps.join('\n') : (tc.steps || '');
+        const testCase: any = {
+          ...existingData,
+          id,
+          ticketNumber: tc.ticketNumber || existingData.ticketNumber || id,
+          testName: tc.testName || existingData.testName || id,
+          scenarioType: tc.scenarioType || existingData.scenarioType || 'positive',
+          project: tc.project || existingData.project || 'Sales Cloud',
+          objectName: tc.objectName || existingData.objectName || 'Account',
+          steps: stepsStr,
+          specCode: tc.specCode || existingData.specCode || '',
+          lastStatus: tc.lastStatus || existingData.lastStatus || 'idle',
+          updatedAt: new Date().toISOString()
+        };
+        // Optional fields kept for Excel round-trips
+        if (Array.isArray(tc.tags)) testCase.tags = tc.tags.map((t: any) => String(t).trim()).filter(Boolean);
+        if (tc.priority && ['High', 'Medium', 'Low'].includes(tc.priority)) testCase.priority = tc.priority;
+        if (typeof tc.owner === 'string' && tc.owner) testCase.owner = tc.owner;
+        if (typeof tc.persona === 'string' && tc.persona) testCase.persona = tc.persona;
+        if (Array.isArray(tc.dataRows)) testCase.dataRows = tc.dataRows;
+        fs.writeFileSync(filePath, JSON.stringify(testCase, null, 2), 'utf-8');
+        results.push(testCase);
+        savedCount++;
+      } catch (e: any) {
+        failures.push({ id, error: e?.message || 'Could not save' });
       }
-      const stepsStr = Array.isArray(tc.steps) ? tc.steps.join('\n') : (tc.steps || '');
-      const testCase = {
-        ...existingData,
-        id,
-        ticketNumber: tc.ticketNumber || existingData.ticketNumber || id,
-        testName: tc.testName || existingData.testName || id,
-        scenarioType: tc.scenarioType || existingData.scenarioType || 'positive',
-        project: tc.project || existingData.project || 'Sales Cloud',
-        objectName: tc.objectName || existingData.objectName || 'Account',
-        steps: stepsStr,
-        specCode: tc.specCode || existingData.specCode || '',
-        lastStatus: tc.lastStatus || existingData.lastStatus || 'idle',
-        updatedAt: new Date().toISOString()
-      };
-      fs.writeFileSync(filePath, JSON.stringify(testCase, null, 2), 'utf-8');
-      results.push(testCase);
-      savedCount++;
     }
 
-    res.json({ success: true, count: savedCount, testCases: results });
+    res.json({
+      success: savedCount > 0 || failures.length === 0,
+      count: savedCount,
+      testCases: results,
+      failures,
+      error: savedCount === 0 && failures.length ? failures[0].error : undefined
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to save batch test cases' });
   }
 });
 
-// Delete test case
+const trashDir = path.resolve(ORGWRIGHT_DIR, 'trash');
+try { fs.mkdirSync(trashDir, { recursive: true }); } catch {}
+
+/** Moves a test definition (and its spec) to .orgwright/trash so it can be restored. */
+function trashTestCase(id: string): boolean {
+  const defFile = path.join(definitionsDir, `${id}.json`);
+  const specFile = path.join(targetDir, `${id}.spec.ts`);
+  let moved = false;
+  if (fs.existsSync(defFile)) {
+    fs.copyFileSync(defFile, path.join(trashDir, `${id}.json`));
+    fs.unlinkSync(defFile);
+    moved = true;
+  }
+  if (fs.existsSync(specFile)) {
+    fs.copyFileSync(specFile, path.join(trashDir, `${id}.spec.ts`));
+    fs.unlinkSync(specFile);
+  }
+  return moved;
+}
+
+// Delete test case (soft: moved to .orgwright/trash; POST /restore brings it back)
 app.delete('/api/testcases/:id', (req, res) => {
   try {
     const { id } = req.params;
     if (!isValidTestId(id)) return res.status(400).json({ error: 'Invalid test case id' });
-    const defFile = path.join(definitionsDir, `${id}.json`);
-    const specFile = path.join(targetDir, `${id}.spec.ts`);
-    if (fs.existsSync(defFile)) fs.unlinkSync(defFile);
-    if (fs.existsSync(specFile)) fs.unlinkSync(specFile);
-    res.json({ success: true, message: `Deleted ${id}` });
+    trashTestCase(id);
+    res.json({ success: true, message: `Deleted ${id}`, restorable: true });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Restore a soft-deleted test case
+app.post('/api/testcases/:id/restore', (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!isValidTestId(id)) return res.status(400).json({ error: 'Invalid test case id' });
+    const trashed = path.join(trashDir, `${id}.json`);
+    if (!fs.existsSync(trashed)) return res.status(404).json({ success: false, error: `${id} is not in the trash` });
+    fs.copyFileSync(trashed, path.join(definitionsDir, `${id}.json`));
+    fs.unlinkSync(trashed);
+    const trashedSpec = path.join(trashDir, `${id}.spec.ts`);
+    if (fs.existsSync(trashedSpec)) {
+      fs.copyFileSync(trashedSpec, path.join(targetDir, `${id}.spec.ts`));
+      fs.unlinkSync(trashedSpec);
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -821,13 +874,25 @@ app.get('/api/projects', (req, res) => {
 
 // Batch Execution
 app.post('/api/testcases/run-batch', async (req, res) => {
+  let started = false;
+  let startedBatchId = '';
   try {
     const { testIds, headed = true, browser = 'chrome', projectName, tag, targetOrg } = req.body;
     if ((!Array.isArray(testIds) || testIds.length === 0) && !tag) {
       return res.status(400).json({ error: 'Select test cases or a tag to run' });
     }
+    // Validate the selection BEFORE telling the UI a run has started
+    let candidates = readDefinitions();
+    if (Array.isArray(testIds) && testIds.length) candidates = candidates.filter((d) => testIds.includes(d.id));
+    if (tag) candidates = candidates.filter((d) => hasTag(d, tag));
+    candidates = candidates.filter((d) => isValidTestId(d.id));
+    if (candidates.length === 0) {
+      return res.status(400).json({ error: 'No runnable test cases found for this selection' });
+    }
     const batchId = `BATCH_${Date.now()}`;
     broadcast({ type: 'start', testId: batchId, browser, timestamp: new Date().toISOString(), isBatch: true, testIds });
+    started = true;
+    startedBatchId = batchId;
 
     // Specs are regenerated from steps (unless hand-edited) and every test gets its own result
     const summary = await runSuite({
@@ -840,6 +905,7 @@ app.post('/api/testcases/run-batch', async (req, res) => {
       onLog: (line) => broadcast({ type: 'log', testId: batchId, line })
     });
     if (summary.total === 0) {
+      broadcast({ type: 'stopped', testId: batchId, reason: 'No runnable test cases found for this selection' });
       return res.status(400).json({ error: 'No runnable test cases found for this selection' });
     }
 
@@ -856,6 +922,8 @@ app.post('/api/testcases/run-batch', async (req, res) => {
     broadcast({ type: 'finished', testId: batchId, report: fullReport, isBatch: true });
     res.json({ success: true, report: fullReport });
   } catch (err: any) {
+    // Always send a terminal event so the UI leaves the "running" state
+    if (started) broadcast({ type: 'stopped', testId: startedBatchId, reason: err?.message || 'Batch run failed' });
     res.status(500).json({ error: err.message || 'Failed to run batch regression' });
   }
 });
@@ -1045,7 +1113,10 @@ app.post('/api/execute', async (req, res) => {
 
 // 6.00 Download Jira Test Proof Word Document (.docx)
 app.get('/api/test-results/jira-proof', (req, res) => {
-  const testId = (req.query.testId as string) || 'TC_001';
+  const testId = req.query.testId as string;
+  if (!testId || !isValidTestId(testId)) {
+    return res.status(400).json({ error: 'A valid testId is required to download a Jira test proof' });
+  }
   const resultsDir = path.resolve(rootPlaywrightDir, 'test-results');
   const docxPath = path.join(resultsDir, `${testId}-Jira-Test-Proof.docx`);
 
@@ -1061,6 +1132,11 @@ app.get('/api/test-results/jira-proof', (req, res) => {
   if (fs.existsSync(defPath)) {
     try { defData = JSON.parse(fs.readFileSync(defPath, 'utf-8')); } catch {}
   }
+  // Never fabricate a result: only generate proof for a test that has actually been executed
+  const executedStatus = defData.lastStatus;
+  if (executedStatus !== 'passed' && executedStatus !== 'failed') {
+    return res.status(409).json({ error: `No stored execution result for ${testId}. Run the test before downloading a Jira proof.` });
+  }
   const stepLines = typeof defData.steps === 'string' ? defData.steps.split('\n') : (defData.steps || []);
 
   const generatedPath = createJiraTestProofDoc({
@@ -1069,8 +1145,8 @@ app.get('/api/test-results/jira-proof', (req, res) => {
     testName: defData.testName || testId,
     scenarioType: defData.scenarioType || 'positive',
     projectName: defData.project || 'Sales Cloud',
-    status: defData.lastStatus || 'passed',
-    durationMs: defData.lastDurationMs || 12000,
+    status: executedStatus,
+    durationMs: typeof defData.lastDurationMs === 'number' ? defData.lastDurationMs : 0,
     steps: stepLines
   });
 
@@ -1647,25 +1723,71 @@ app.post('/api/templates/import', (req, res) => {
 });
 
 app.post('/api/templates/import-all', (req, res) => {
+  // body: { dryRun?: boolean, mode?: 'skip' | 'replace' }
   try {
-    let importedCount = 0;
+    const dryRun = Boolean(req.body?.dryRun);
+    const mode: 'skip' | 'replace' = req.body?.mode === 'replace' ? 'replace' : 'skip';
+    const toAdd: string[] = [];
+    const existing: string[] = [];
+    for (const tmpl of SALESFORCE_STANDARD_TEMPLATES) {
+      (fs.existsSync(path.join(definitionsDir, `${tmpl.id}.json`)) ? existing : toAdd).push(tmpl.id);
+    }
+    if (dryRun) return res.json({ success: true, dryRun: true, add: toAdd, exist: existing });
+
+    const created: string[] = [];
+    const replaced: string[] = [];
+    const skipped: string[] = [];
+    const failed: Array<{ id: string; error: string }> = [];
     for (const tmpl of SALESFORCE_STANDARD_TEMPLATES) {
       const filePath = path.join(definitionsDir, `${tmpl.id}.json`);
-      const testCase = {
-        id: tmpl.id,
-        ticketNumber: tmpl.ticketNumber,
-        testName: tmpl.testName,
-        project: tmpl.category || 'Sales Cloud',
-        objectName: tmpl.objectName || 'Account',
-        steps: tmpl.steps,
-        specCode: '',
-        lastStatus: 'idle',
-        updatedAt: new Date().toISOString()
-      };
-      fs.writeFileSync(filePath, JSON.stringify(testCase, null, 2), 'utf-8');
-      importedCount++;
+      try {
+        const exists = fs.existsSync(filePath);
+        if (exists && mode === 'skip') {
+          skipped.push(tmpl.id);
+          continue;
+        }
+        // Keep the old version in the trash so Undo can restore it
+        if (exists) trashTestCase(tmpl.id);
+        const testCase = {
+          id: tmpl.id,
+          ticketNumber: tmpl.ticketNumber,
+          testName: tmpl.testName,
+          project: tmpl.category || 'Sales Cloud',
+          objectName: tmpl.objectName || 'Account',
+          steps: tmpl.steps,
+          specCode: '',
+          lastStatus: 'idle',
+          updatedAt: new Date().toISOString()
+        };
+        fs.writeFileSync(filePath, JSON.stringify(testCase, null, 2), 'utf-8');
+        (exists ? replaced : created).push(tmpl.id);
+      } catch (e: any) {
+        failed.push({ id: tmpl.id, error: e?.message || 'Could not write' });
+      }
     }
-    res.json({ success: true, importedCount });
+    res.json({ success: true, importedCount: created.length + replaced.length, created, replaced, skipped, failed });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Undo an Import All: remove what was created, restore what was replaced
+app.post('/api/templates/import-all/undo', (req, res) => {
+  try {
+    const created: string[] = Array.isArray(req.body?.created) ? req.body.created.filter(isValidTestId) : [];
+    const replaced: string[] = Array.isArray(req.body?.replaced) ? req.body.replaced.filter(isValidTestId) : [];
+    for (const id of created) {
+      const f = path.join(definitionsDir, `${id}.json`);
+      if (fs.existsSync(f)) fs.unlinkSync(f);
+    }
+    for (const id of replaced) {
+      const trashed = path.join(trashDir, `${id}.json`);
+      if (fs.existsSync(trashed)) {
+        fs.copyFileSync(trashed, path.join(definitionsDir, `${id}.json`));
+        fs.unlinkSync(trashed);
+      }
+    }
+    res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
