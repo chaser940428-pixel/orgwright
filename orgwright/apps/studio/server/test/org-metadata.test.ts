@@ -124,6 +124,16 @@ for (const [label, value] of [
 }
 
 for (const endpoint of ['objects', 'users']) {
+  test(`${endpoint}: invalid aliases are rejected before running the CLI`, async () => {
+    const count = calls().length;
+    for (const alias of ['bad alias', '../outside', 'bad&command', 'bad"quote']) {
+      const response = await fetch(`${base}/api/org/${endpoint}?alias=${encodeURIComponent(alias)}`);
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), { success: false, error: 'Invalid alias' });
+    }
+    assert.equal(calls().length, count);
+  });
+
   test(`${endpoint}: HTTP and WebSocket stay responsive until CLI output arrives`, async () => {
     const alias = `fixture-${endpoint}-pending`;
     const result = endpoint === 'objects'

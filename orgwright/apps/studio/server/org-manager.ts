@@ -1,4 +1,5 @@
-import { execSync, spawn, ChildProcess } from 'child_process';
+import { ChildProcess } from 'child_process';
+import { runSfSync, spawnSf, assertAlias, assertInstanceUrl, isValidAlias } from './lib/validators';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -52,7 +53,7 @@ function parseCliJson(raw: string): any {
  */
 export function listConnectedOrgs(): ConnectedOrg[] {
   try {
-    const raw = execSync('sf org list --json', { timeout: 20000, encoding: 'utf-8' });
+    const raw = runSfSync(['org', 'list', '--json'], { timeout: 20000 });
     const parsed = parseCliJson(raw);
     const result = parsed.result || {};
     const allOrgs: ConnectedOrg[] = [];
@@ -120,11 +121,11 @@ export function listConnectedOrgs(): ConnectedOrg[] {
  * Get detailed status for an org alias
  */
 export function getOrgStatus(alias: string) {
+  if (!isValidAlias(alias)) {
+    return { connected: false, alias: '', status: 'Invalid alias' };
+  }
   try {
-    const raw = execSync(`sf org display --target-org "${alias}" --json`, {
-      timeout: 15000,
-      encoding: 'utf-8'
-    });
+    const raw = runSfSync(['org', 'display', '--target-org', alias, '--json'], { timeout: 15000 });
     const parsed = parseCliJson(raw);
     if (parsed.status === 0 && parsed.result) {
       return {
@@ -155,10 +156,8 @@ export function getOrgStatus(alias: string) {
 export function testOrgConnection(alias: string) {
   const startTime = Date.now();
   try {
-    const raw = execSync(`sf org display --target-org "${alias}" --json`, {
-      timeout: 20000,
-      encoding: 'utf-8'
-    });
+    assertAlias(alias);
+    const raw = runSfSync(['org', 'display', '--target-org', alias, '--json'], { timeout: 20000 });
     const latencyMs = Date.now() - startTime;
     const parsed = parseCliJson(raw);
     return {
@@ -190,14 +189,19 @@ export function testOrgConnection(alias: string) {
  */
 export function openOrg(alias: string, options: { path?: string; urlOnly?: boolean } = {}) {
   try {
-    const flags = [
-      `-o "${alias}"`,
-      options.urlOnly ? '--url-only' : '',
-      options.path ? `-p "${options.path}"` : '',
-      '--json'
-    ].filter(Boolean).join(' ');
+    assertAlias(alias);
+    const args = ['org', 'open', '-o', alias];
+    if (options.urlOnly) args.push('--url-only');
+    if (options.path) {
+      // A Salesforce-relative path such as /lightning/setup/... — no schemes, no traversal tricks.
+      if (typeof options.path !== 'string' || !/^\/[A-Za-z0-9_\-./?=&]{0,500}$/.test(options.path)) {
+        throw new Error('Invalid path: must be a Salesforce-relative path starting with /');
+      }
+      args.push('-p', options.path);
+    }
+    args.push('--json');
 
-    const raw = execSync(`sf org open ${flags}`, { timeout: 25000, encoding: 'utf-8' });
+    const raw = runSfSync(args, { timeout: 25000 });
     const parsed = parseCliJson(raw);
     return {
       success: true,
@@ -218,10 +222,8 @@ export function openOrg(alias: string, options: { path?: string; urlOnly?: boole
  */
 export function logoutOrg(alias: string) {
   try {
-    execSync(`sf org logout --target-org "${alias}" --no-prompt --json`, {
-      timeout: 15000,
-      encoding: 'utf-8'
-    });
+    assertAlias(alias);
+    runSfSync(['org', 'logout', '--target-org', alias, '--no-prompt', '--json'], { timeout: 15000 });
     return { success: true, message: `Successfully logged out and removed ${alias}` };
   } catch (err: any) {
     let errMsg = err.message;
@@ -245,7 +247,11 @@ export function startWebAuth(
   onComplete?: (job: OrgAuthJob) => void
 ): OrgAuthJob {
   const jobId = `webauth_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const cleanAlias = alias.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+  const cleanAlias = assertAlias(alias.trim().replace(/[^a-zA-Z0-9_-]/g, ''));
+  instanceUrl = assertInstanceUrl(instanceUrl);
+  if (options.browser && options.browser !== 'default' && !/^[a-z]{1,20}$/.test(options.browser)) {
+    throw new Error('Invalid browser option');
+  }
 
   const job: OrgAuthJob = {
     id: jobId,
@@ -284,10 +290,7 @@ export function startWebAuth(
     cmdArgs.push('--browser', options.browser);
   }
 
-  const child = spawn('sf', cmdArgs, {
-    shell: true,
-    detached: false
-  });
+  const child = spawnSf(cmdArgs, { detached: false });
 
   job.childProcess = child;
 
@@ -403,21 +406,18 @@ export function loginWithAccessToken(
   setDefault: boolean = false
 ) {
   const cleanAlias = alias.trim().replace(/[^a-zA-Z0-9_-]/g, '');
-  const cleanUrl = instanceUrl.trim();
+  let cleanUrl = instanceUrl.trim();
 
   try {
-    const flags = [
-      `-r "${cleanUrl}"`,
-      `-a "${cleanAlias}"`,
-      '--no-prompt',
-      setDefault ? '--set-default' : '',
-      '--json'
-    ].filter(Boolean).join(' ');
+    assertAlias(cleanAlias);
+    cleanUrl = assertInstanceUrl(cleanUrl);
+    const args = ['org', 'login', 'access-token', '-r', cleanUrl, '-a', cleanAlias, '--no-prompt'];
+    if (setDefault) args.push('--set-default');
+    args.push('--json');
 
-    const raw = execSync(`sf org login access-token ${flags}`, {
+    const raw = runSfSync(args, {
       env: { ...process.env, SF_ACCESS_TOKEN: accessToken.trim() },
-      timeout: 30000,
-      encoding: 'utf-8'
+      timeout: 30000
     });
 
     const parsed = parseCliJson(raw);
@@ -455,19 +455,13 @@ export function loginWithSfdxUrl(alias: string, sfdxUrl: string, setDefault: boo
   const tmpFile = path.join(os.tmpdir(), `sf_auth_${Date.now()}.txt`);
 
   try {
-    fs.writeFileSync(tmpFile, sfdxUrl.trim(), 'utf-8');
-    const flags = [
-      `-f "${tmpFile}"`,
-      `-a "${cleanAlias}"`,
-      '--no-prompt',
-      setDefault ? '--set-default' : '',
-      '--json'
-    ].filter(Boolean).join(' ');
+    assertAlias(cleanAlias);
+    fs.writeFileSync(tmpFile, sfdxUrl.trim(), { encoding: 'utf-8', mode: 0o600 });
+    const args = ['org', 'login', 'sfdx-url', '-f', tmpFile, '-a', cleanAlias, '--no-prompt'];
+    if (setDefault) args.push('--set-default');
+    args.push('--json');
 
-    const raw = execSync(`sf org login sfdx-url ${flags}`, {
-      timeout: 30000,
-      encoding: 'utf-8'
-    });
+    const raw = runSfSync(args, { timeout: 30000 });
 
     try {
       fs.unlinkSync(tmpFile);

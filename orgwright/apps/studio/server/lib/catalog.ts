@@ -4,6 +4,7 @@ import type { OrgMetadataCache, SObjectDescribe, TestStep } from '@orgwright/cor
 import { resolveTestSteps } from '@orgwright/resolver';
 import { introspectSObject } from '@orgwright/introspector';
 import { CACHE_DIR, safeName } from './paths';
+import { assertAlias, assertSObjectName } from './validators';
 
 /**
  * Org metadata for the resolver: the org's object list (so "Encounter" resolves to Encounter__c)
@@ -39,6 +40,13 @@ const inFlight = new Map<string, Promise<SObjectDescribe>>();
 
 /** Describes an object with the Salesforce CLI and caches it (concurrent calls share one CLI run). */
 export function fetchDescribe(alias: string, objectApi: string): Promise<SObjectDescribe> {
+  // These reach the Salesforce CLI (through cmd.exe on Windows), so validate before spawning.
+  try {
+    assertAlias(alias);
+    assertSObjectName(objectApi);
+  } catch (err) {
+    return Promise.reject(err);
+  }
   const key = `${alias}::${objectApi}`;
   const running = inFlight.get(key);
   if (running) return running;

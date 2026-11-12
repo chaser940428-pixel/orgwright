@@ -6,9 +6,12 @@ import { describeCacheFile, fetchDescribe, readDescribe, resolveWithCatalog } fr
 import { USE_BLOCK_RE, getBlock, listBlocks, saveBlock, deleteBlock } from '../lib/blocks';
 import { CACHE_DIR, RESULTS_DIR, safeName } from '../lib/paths';
 import { executeSfCommand } from '@orgwright/introspector';
+import { assertAlias } from '../lib/validators';
 
 /** Runs a SOQL query with the Salesforce CLI and caches the records for a day. */
 async function cachedQuery(alias: string, key: string, soql: string, refresh: boolean): Promise<{ records: any[]; fromCache: boolean }> {
+  // The alias reaches the Salesforce CLI (through cmd.exe on Windows); only allow safe characters.
+  assertAlias(alias);
   const file = path.join(CACHE_DIR, `${key}-${safeName(alias)}.json`);
   if (!refresh && fs.existsSync(file)) {
     const age = Date.now() - fs.statSync(file).mtimeMs;

@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { runSfSync, assertAlias, assertLogId } from './lib/validators';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -109,6 +109,8 @@ export function fetchRecentSalesforceLogs(
   limit = 5
 ): ParsedApexLog[] {
   try {
+    assertAlias(targetOrg, 'targetOrg');
+    limit = Math.max(1, Math.min(50, Math.floor(Number(limit)) || 5));
     let query = `SELECT Id, LogUserId, LogUser.Name, Operation, Request, Status, StartTime, DurationMilliseconds, LogLength FROM ApexLog`;
     if (sinceIso) {
       // Format to Salesforce SOQL timestamp: YYYY-MM-DDTHH:MM:SSZ
@@ -118,11 +120,8 @@ export function fetchRecentSalesforceLogs(
     query += ` ORDER BY StartTime DESC LIMIT ${limit}`;
 
     console.log(`[SalesforceLogAnalyzer] Querying ApexLog in ${targetOrg}: ${query}`);
-    const cmd = `sf data query -o "${targetOrg}" -q "${query}" --json`;
-    const raw = execSync(cmd, {
-      encoding: 'utf-8',
+    const raw = runSfSync(['data', 'query', '-o', targetOrg, '-q', query, '--json'], {
       timeout: 25000,
-      shell: true as unknown as string,
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
@@ -153,10 +152,10 @@ export function fetchRecentSalesforceLogs(
  */
 function getApexLogBody(logId: string, targetOrg: string): string {
   try {
-    const raw = execSync(`sf apex get log -i ${logId} -o "${targetOrg}"`, {
-      encoding: 'utf-8',
+    assertLogId(logId);
+    assertAlias(targetOrg, 'targetOrg');
+    const raw = runSfSync(['apex', 'get', 'log', '-i', logId, '-o', targetOrg], {
       timeout: 20000,
-      shell: true as unknown as string,
       stdio: ['pipe', 'pipe', 'pipe']
     });
     return raw;
